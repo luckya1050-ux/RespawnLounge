@@ -1,0 +1,2302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RESPAWN — Game Café</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#F4F2EC;
+    --ink-dim:#9C97B5;
+    --amber:#FFB627;
+    --magenta:#FF4E86;
+    --cyan:#5FE1D8;
+    --line:rgba(244,242,236,0.12);
+    --panel:rgba(20,18,32,0.72);
+    --panel-solid:#181527;
+    --radius:16px;
+    --header-h:98px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:#0b0a12;
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    overflow-x:hidden;
+    -webkit-tap-highlight-color:transparent;
+  }
+  h1,h2,h3{font-family:'Chakra Petch',sans-serif;font-weight:700;letter-spacing:-0.01em;line-height:1.05;}
+  ::selection{background:var(--amber);color:#181527;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select{font-family:inherit;}
+  a{color:inherit;text-decoration:none;}
+
+  /* ---------- Ambient theme background (crossfades to match browsed game) ---------- */
+  .bg-layer{
+    position:fixed;inset:0;z-index:0;
+    transition:opacity 0.9s ease;
+    pointer-events:none;
+  }
+  #bgA{opacity:1;}
+  #bgB{opacity:0;}
+  .bg-layer::after{
+    content:"";position:absolute;inset:0;
+    background:repeating-linear-gradient(rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,0,0,0.05) 3px);
+  }
+
+  /* ---------- Top bar / tabs (Apple-style) ---------- */
+  .topbar{
+    position:fixed;top:0;left:0;right:0;z-index:100;
+    background:rgba(11,10,18,0.72);
+    backdrop-filter:blur(18px) saturate(160%);
+    -webkit-backdrop-filter:blur(18px) saturate(160%);
+    border-bottom:1px solid var(--line);
+  }
+  .topbar-inner{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 20px;
+  }
+  .logo{
+    font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:19px;letter-spacing:0.02em;
+    display:flex;align-items:center;gap:8px;
+  }
+  .logo .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px var(--amber);}
+  .logo span{color:var(--amber);}
+  .tabs{
+    display:flex;gap:4px;
+    overflow-x:auto;
+    scrollbar-width:none;
+    padding:0 20px 12px;
+  }
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab-btn{
+    background:none;border:none;color:var(--ink-dim);
+    font-family:'JetBrains Mono',monospace;
+    font-size:12.5px;letter-spacing:0.06em;text-transform:uppercase;
+    padding:8px 14px;border-radius:999px;white-space:nowrap;
+    transition:all .2s ease;
+  }
+  .tab-btn.active{background:var(--ink);color:#14121f;font-weight:600;}
+  .tab-btn:not(.active):hover{color:var(--ink);}
+
+  main{position:relative;z-index:5;padding-top:calc(var(--header-h) + 10px);min-height:100vh;}
+  .view{display:none;padding:0 0 100px;animation:fadeIn .5s ease;}
+  .view.active{display:block;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+  .wrap{padding:0 20px;max-width:1200px;margin:0 auto;}
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;
+    color:var(--amber);margin-bottom:10px;display:flex;align-items:center;gap:8px;
+  }
+  .eyebrow::before{content:"";width:22px;height:1px;background:var(--amber);}
+  .section-title{font-size:clamp(20px,4vw,28px);margin-bottom:4px;}
+  .section-sub{color:var(--ink-dim);font-size:14px;margin-bottom:18px;max-width:640px;}
+
+  /* ---------- HERO CAROUSEL (Apple TV style) ---------- */
+  .hero-carousel{
+    display:flex;overflow-x:auto;scroll-snap-type:x mandatory;
+    gap:14px;padding:14px 20px 22px;
+    scrollbar-width:none;
+  }
+  .hero-carousel::-webkit-scrollbar{display:none;}
+  .hero-card{
+    scroll-snap-align:center;
+    flex:0 0 82vw;max-width:420px;
+    border-radius:22px;overflow:hidden;position:relative;
+    aspect-ratio:3/4;
+    background:#161320;
+    border:1px solid var(--line);
+    box-shadow:0 20px 50px rgba(0,0,0,0.45);
+  }
+  .hero-card img{width:100%;height:100%;object-fit:cover;display:block;}
+  .hero-card .grad{
+    position:absolute;inset:0;
+    background:linear-gradient(180deg,rgba(0,0,0,0) 40%,rgba(0,0,0,0.85) 100%);
+  }
+  .hero-card .info{
+    position:absolute;left:0;right:0;bottom:0;padding:22px;
+  }
+  .hero-card .badge{
+    display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;
+    letter-spacing:0.1em;text-transform:uppercase;padding:4px 10px;border-radius:999px;
+    background:rgba(244,242,236,0.14);backdrop-filter:blur(6px);margin-bottom:10px;
+  }
+  .hero-card h3{font-size:24px;margin-bottom:6px;}
+  .hero-card p{color:var(--ink-dim);font-size:13px;margin-bottom:14px;}
+  .hero-card .cta{
+    display:inline-flex;align-items:center;gap:8px;
+    background:var(--ink);color:#14121f;font-weight:600;font-size:13px;
+    padding:10px 16px;border-radius:999px;border:none;
+  }
+  .hero-dots{display:flex;justify-content:center;gap:6px;margin-top:6px;}
+  .hero-dots span{width:6px;height:6px;border-radius:50%;background:var(--line);transition:all .25s ease;}
+  .hero-dots span.on{background:var(--amber);width:18px;border-radius:4px;}
+
+  /* ---------- Shelf (poster row) ---------- */
+  .shelf-row{
+    display:flex;gap:12px;overflow-x:auto;padding:6px 20px 16px;scrollbar-width:none;
+  }
+  .shelf-row::-webkit-scrollbar{display:none;}
+  .poster{
+    flex:0 0 128px;border-radius:12px;overflow:hidden;position:relative;
+    aspect-ratio:2/3;background:#1b1830;border:1px solid var(--line);
+  }
+  .poster img{width:100%;height:100%;object-fit:cover;}
+  .poster .plabel{
+    position:absolute;left:0;right:0;bottom:0;padding:8px;
+    background:linear-gradient(180deg,transparent,rgba(0,0,0,0.9));
+    font-size:11px;font-weight:600;
+  }
+
+  /* ---------- Games grid + filters ---------- */
+  .chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+  .chip{
+    background:var(--panel);border:1px solid var(--line);color:var(--ink-dim);
+    font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:0.06em;text-transform:uppercase;
+    padding:8px 14px;border-radius:999px;transition:all .2s ease;
+  }
+  .chip.active{background:var(--amber);color:#14121f;border-color:var(--amber);font-weight:700;}
+  .subchip-row{display:flex;gap:8px;margin:4px 0 18px;}
+  .subchip-row.hidden{display:none;}
+  .games-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;padding:6px 0 30px;
+  }
+  .game-card{
+    background:var(--panel-solid);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+    transition:transform .2s ease,border-color .2s ease;
+  }
+  .game-card:hover{transform:translateY(-4px);border-color:var(--amber);}
+  .game-card .thumb{aspect-ratio:3/4;background:#1b1830;position:relative;overflow:hidden;}
+  .game-card .thumb img{width:100%;height:100%;object-fit:cover;}
+  .game-card .body{padding:12px 12px 14px;}
+  .game-card h4{font-size:14.5px;margin-bottom:6px;}
+  .game-card .tagset{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;}
+  .game-card .tagset span{
+    font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.05em;text-transform:uppercase;
+    background:rgba(255,255,255,0.08);padding:2px 7px;border-radius:6px;color:var(--ink-dim);
+  }
+  .game-card .meta{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-dim);}
+  .game-card .meta .price{color:var(--cyan);font-weight:600;}
+  .empty-state{color:var(--ink-dim);font-size:13px;padding:30px 0;text-align:center;}
+
+  /* ---------- Tournaments ---------- */
+  .card{
+    background:var(--panel-solid);border:1px solid var(--line);border-radius:var(--radius);padding:18px;
+  }
+  .tourn-card{margin-bottom:12px;display:flex;gap:14px;align-items:center;}
+  .tourn-card img{width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0;}
+  .tourn-card .t-body{flex:1;min-width:0;}
+  .tourn-card h4{font-size:15px;margin-bottom:3px;}
+  .tourn-card .t-meta{font-size:12px;color:var(--ink-dim);display:flex;gap:10px;flex-wrap:wrap;}
+  .tourn-card .prize{
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--amber);white-space:nowrap;
+  }
+  .btn{
+    border:none;border-radius:999px;padding:11px 18px;font-weight:600;font-size:13.5px;
+    display:inline-flex;align-items:center;gap:8px;transition:all .2s ease;
+  }
+  .btn-primary{background:var(--amber);color:#181527;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink);}
+  .btn-ghost:hover{border-color:var(--ink);}
+  .btn-sm{padding:7px 12px;font-size:12px;}
+
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(6,5,10,0.7);backdrop-filter:blur(4px);
+    z-index:200;display:none;align-items:flex-end;justify-content:center;
+  }
+  .modal-backdrop.show{display:flex;}
+  .modal{
+    background:var(--panel-solid);border:1px solid var(--line);border-radius:20px 20px 0 0;
+    width:100%;max-width:560px;max-height:85vh;overflow-y:auto;padding:24px 20px 30px;
+    animation:slideUp .3s ease;
+  }
+  @media (min-width:640px){
+    .modal-backdrop{align-items:center;}
+    .modal{border-radius:20px;}
+  }
+  @keyframes slideUp{from{transform:translateY(30px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  .modal-close{background:rgba(255,255,255,0.08);border:none;color:var(--ink);width:30px;height:30px;border-radius:50%;font-size:16px;}
+
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--ink-dim);margin-bottom:6px;font-family:'JetBrains Mono',monospace;letter-spacing:0.04em;}
+  .field input[type=text],.field input[type=number],.field input[type=date],.field input[type=url],.field select,.field textarea{
+    width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:10px;
+    padding:11px 12px;color:var(--ink);font-size:14px;
+  }
+  .field textarea{resize:vertical;min-height:60px;}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .check-grid{display:flex;flex-wrap:wrap;gap:8px;}
+  .check-pill{
+    display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.05);border:1px solid var(--line);
+    border-radius:999px;padding:7px 12px;font-size:12.5px;cursor:pointer;
+  }
+  .check-pill input{accent-color:var(--amber);}
+  .swatch-row{display:flex;gap:10px;}
+  .swatch-row input[type=color]{width:44px;height:38px;border:1px solid var(--line);border-radius:8px;background:none;padding:2px;}
+
+  .file-drop{
+    display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;
+    border:1.5px dashed var(--line);border-radius:12px;padding:18px 12px;text-align:center;
+    background:rgba(255,255,255,0.03);cursor:pointer;transition:border-color .2s ease;
+  }
+  .file-drop:hover{border-color:var(--amber);}
+  .file-drop span{font-size:12.5px;color:var(--ink-dim);}
+  .file-drop input{display:none;}
+  .hint-text{font-size:11px;color:var(--ink-dim);margin-top:6px;}
+  .cover-preview{width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;margin-top:10px;border:1px solid var(--line);display:none;}
+  .cover-preview.show{display:block;}
+  .cover-preview img{width:100%;height:100%;object-fit:cover;}
+
+  .gallery-preview{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .gthumb{position:relative;width:74px;height:74px;border-radius:10px;overflow:hidden;border:1px solid var(--line);}
+  .gthumb img{width:100%;height:100%;object-fit:cover;}
+  .gthumb button{
+    position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:none;
+    background:rgba(6,5,10,0.75);color:#fff;font-size:12px;line-height:1;
+  }
+  .video-preview{width:100%;border-radius:12px;overflow:hidden;margin-top:10px;border:1px solid var(--line);display:none;background:#000;}
+  .video-preview.show{display:block;}
+  .video-preview video{width:100%;max-height:220px;display:block;}
+  .video-clear{margin-top:8px;}
+
+  /* ---------- Public game detail (gameplay media) ---------- */
+  .media-btn{
+    margin-top:8px;width:100%;justify-content:center;background:rgba(255,255,255,0.07);
+    border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:8px;font-size:12px;
+    display:flex;align-items:center;gap:6px;
+  }
+  .detail-cover{width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;margin-bottom:16px;}
+  .detail-cover img{width:100%;height:100%;object-fit:cover;}
+  .detail-video{width:100%;border-radius:14px;overflow:hidden;margin-bottom:16px;background:#000;}
+  .detail-video video{width:100%;display:block;max-height:320px;}
+  .detail-gallery{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;}
+  .detail-gallery img{
+    flex:0 0 130px;height:130px;object-fit:cover;border-radius:10px;border:1px solid var(--line);
+  }
+  .detail-sub-label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-dim);margin:16px 0 10px;}
+
+  /* ---------- Packages ---------- */
+  .packages-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;padding:6px 0 30px;}
+  .package-card{
+    background:var(--panel-solid);border:1px solid var(--line);border-radius:var(--radius);padding:22px;position:relative;
+  }
+  .package-card.highlight{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset;}
+  .package-card .tagset{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0;}
+  .package-card .tagset span{
+    font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.05em;text-transform:uppercase;
+    background:rgba(255,255,255,0.08);padding:2px 7px;border-radius:6px;color:var(--ink-dim);
+  }
+  .package-card .pill{
+    position:absolute;top:-11px;left:20px;background:var(--amber);color:#181527;font-size:10.5px;font-weight:700;
+    letter-spacing:0.06em;text-transform:uppercase;padding:4px 10px;border-radius:999px;
+  }
+  .package-price{font-family:'Chakra Petch',sans-serif;font-size:30px;font-weight:700;margin:10px 0 14px;}
+  .package-price span{font-size:13px;color:var(--ink-dim);font-weight:400;font-family:'Inter',sans-serif;}
+  .package-card ul{list-style:none;margin-bottom:18px;}
+  .package-card li{font-size:13px;color:var(--ink-dim);padding:5px 0;padding-left:18px;position:relative;}
+  .package-card li::before{content:"✓";position:absolute;left:0;color:var(--cyan);}
+
+  /* ---------- Leaderboard ---------- */
+  .lb-table{width:100%;border-collapse:collapse;margin-top:6px;}
+  .lb-table th{
+    text-align:left;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;
+    color:var(--ink-dim);padding:10px 12px;border-bottom:1px solid var(--line);
+  }
+  .lb-table td{padding:12px;border-bottom:1px solid var(--line);font-size:13.5px;}
+  .lb-table tr:last-child td{border-bottom:none;}
+  .lb-rank{font-family:'Chakra Petch',sans-serif;font-weight:700;color:var(--amber);width:36px;}
+  .lb-table tr:nth-child(1) .lb-rank{color:#FFD966;}
+  .lb-table tr:nth-child(2) .lb-rank{color:#D9D9E3;}
+  .lb-table tr:nth-child(3) .lb-rank{color:#D89B62;}
+
+  /* ---------- Admin ---------- */
+  .admin-lock{max-width:340px;margin:60px auto;text-align:center;}
+  .admin-lock input{
+    width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:10px;
+    padding:12px;color:var(--ink);text-align:center;letter-spacing:0.3em;font-size:16px;margin:16px 0;
+  }
+  .admin-sub-tabs{display:flex;gap:8px;margin-bottom:18px;}
+  .admin-list-row{
+    display:flex;align-items:center;gap:12px;padding:12px;background:var(--panel-solid);
+    border:1px solid var(--line);border-radius:12px;margin-bottom:10px;
+  }
+  .admin-list-row img{width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;}
+  .admin-list-row .info{flex:1;min-width:0;}
+  .admin-list-row h5{font-size:14px;margin-bottom:2px;}
+  .admin-list-row .sub{font-size:12px;color:var(--ink-dim);}
+  .admin-list-row .actions{display:flex;gap:6px;flex-shrink:0;}
+  .admin-list-row.is-hidden{opacity:0.5;}
+  .hidden-tag{
+    font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.05em;text-transform:uppercase;
+    background:rgba(255,255,255,0.1);color:var(--ink-dim);padding:2px 7px;border-radius:6px;margin-left:4px;
+  }
+  .icon-btn{
+    background:rgba(255,255,255,0.06);border:1px solid var(--line);color:var(--ink);
+    width:32px;height:32px;border-radius:8px;font-size:14px;
+  }
+  .row-between{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;}
+  .toast{
+    position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:#14121f;padding:12px 20px;border-radius:999px;font-size:13px;font-weight:600;
+    opacity:0;pointer-events:none;transition:all .3s ease;z-index:300;white-space:nowrap;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  footer{position:relative;z-index:5;text-align:center;padding:30px 20px 40px;color:var(--ink-dim);font-size:12px;font-family:'JetBrains Mono',monospace;}
+
+  @media (min-width:860px){
+    .hero-card{flex:0 0 46vw;}
+  }
+
+  /* ---------- Edit mode (inline admin controls) ---------- */
+  .admin-zone{display:none;}
+  body.edit-mode-on .admin-zone{display:flex;}
+  .edit-toggle-btn{
+    background:rgba(255,255,255,0.06);border:1px solid var(--line);color:var(--ink);
+    font-size:11.5px;padding:8px 12px;border-radius:999px;display:flex;align-items:center;gap:6px;white-space:nowrap;
+  }
+  body.edit-mode-on .edit-toggle-btn{background:var(--amber);color:#181527;border-color:var(--amber);font-weight:700;}
+  .card-admin-ctrl{position:absolute;top:8px;right:8px;display:flex;gap:6px;z-index:3;}
+  .card-admin-ctrl .icon-btn{background:rgba(6,5,10,0.8);}
+  .package-card{position:relative;}
+  .tourn-card{flex-wrap:wrap;}
+  .tourn-actions{width:100%;display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+
+  /* ---------- Registration flow ---------- */
+  .reg-step{display:none;}
+  .reg-step.show{display:block;}
+  .avatar-preview{width:74px;height:74px;border-radius:50%;overflow:hidden;border:1px solid var(--line);display:none;margin-top:10px;}
+  .avatar-preview.show{display:block;}
+  .avatar-preview img{width:100%;height:100%;object-fit:cover;}
+  .verified-tag{
+    font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.05em;text-transform:uppercase;
+    background:rgba(95,225,216,0.15);color:var(--cyan);padding:4px 10px;border-radius:999px;
+    display:inline-flex;align-items:center;gap:4px;margin-bottom:14px;
+  }
+
+  /* ---------- Status badges (registrations) ---------- */
+  .status-badge{
+    font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.05em;text-transform:uppercase;
+    padding:3px 8px;border-radius:6px;margin-left:6px;white-space:nowrap;
+  }
+  .status-badge.pending{background:rgba(255,182,39,0.15);color:var(--amber);}
+  .status-badge.approved{background:rgba(95,225,216,0.15);color:var(--cyan);}
+  .status-badge.declined{background:rgba(255,78,134,0.15);color:var(--magenta);}
+  .fee-tag{
+    font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.05em;text-transform:uppercase;
+    display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:var(--ink-dim);margin-top:4px;
+  }
+  .fee-tag input{accent-color:var(--cyan);}
+  .registrant-row{flex-wrap:wrap;}
+  .registrant-row .actions{flex-wrap:wrap;}
+  .btn-approve{background:rgba(95,225,216,0.18);border:1px solid var(--cyan);color:var(--cyan);}
+  .btn-decline{background:rgba(255,78,134,0.18);border:1px solid var(--magenta);color:var(--magenta);}
+
+  /* ---------- Leaderboard avatars ---------- */
+  .lb-player-cell{display:flex;align-items:center;gap:8px;}
+  .lb-avatar{width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,0.08);}
+  .lb-avatar.placeholder{display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--ink-dim);}
+
+  /* ---------- Bracket ---------- */
+  .bracket-scroll{overflow-x:auto;padding-bottom:10px;}
+  .bracket-rounds{display:flex;gap:26px;min-width:max-content;padding:6px 2px;}
+  .bracket-round{display:flex;flex-direction:column;justify-content:space-around;gap:18px;min-width:180px;}
+  .bracket-round-title{
+    font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;
+    color:var(--ink-dim);text-align:center;margin-bottom:6px;
+  }
+  .bracket-match{background:var(--panel-solid);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+  .bracket-slot{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;font-size:12.5px;
+    border-bottom:1px solid var(--line);cursor:default;
+  }
+  .bracket-slot:last-child{border-bottom:none;}
+  .bracket-slot.winner{background:rgba(255,182,39,0.12);color:var(--amber);font-weight:700;}
+  .bracket-slot.bye{color:var(--ink-dim);font-style:italic;}
+  .bracket-slot.clickable{cursor:pointer;}
+  .bracket-slot.clickable:hover{background:rgba(255,255,255,0.06);}
+  .bracket-champ{
+    text-align:center;font-family:'Chakra Petch',sans-serif;font-size:15px;color:var(--amber);
+    background:rgba(255,182,39,0.1);border:1px solid var(--amber);border-radius:10px;padding:10px;margin-bottom:16px;
+  }
+
+  /* ---------- Drag-to-scroll (mouse) for horizontally scrolling rows ---------- */
+  .hscroll{cursor:grab;}
+  .hscroll.dragging{cursor:grabbing;user-select:none;scroll-snap-type:none !important;}
+</style>
+</head>
+<body>
+
+<div class="bg-layer" id="bgA"></div>
+<div class="bg-layer" id="bgB"></div>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="logo"><span class="dot"></span>RESPAWN<span>.</span></div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);">OPEN 24/7</div>
+      <button class="edit-toggle-btn" id="editModeToggle">🔒 Edit</button>
+    </div>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button class="tab-btn active" data-view="home">Home</button>
+    <button class="tab-btn" data-view="games">Games</button>
+    <button class="tab-btn" data-view="tournaments">Tournaments</button>
+    <button class="tab-btn" data-view="packages">Packages</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ===================== HOME ===================== -->
+  <section class="view active" id="view-home">
+    <div class="wrap" style="padding-top:6px;">
+      <div class="eyebrow">Featured this week</div>
+      <h2 class="section-title">What are we playing today?</h2>
+      <p class="section-sub">Swipe through — the room changes with you.</p>
+    </div>
+    <div class="hero-carousel hscroll" id="heroCarousel"></div>
+    <div class="hero-dots" id="heroDots"></div>
+
+    <div class="wrap" style="margin-top:36px;">
+      <div class="eyebrow">Full library</div>
+      <h2 class="section-title">Browse every station</h2>
+    </div>
+    <div class="shelf-row hscroll" id="shelfRow"></div>
+  </section>
+
+  <!-- ===================== GAMES ===================== -->
+  <section class="view" id="view-games">
+    <div class="wrap">
+      <div class="eyebrow">Available games</div>
+      <h2 class="section-title">Pick a mode</h2>
+      <p class="section-sub">Filter by how you want to play.</p>
+      <div class="row-between admin-zone" style="margin-bottom:6px;">
+        <p class="section-sub" style="margin:0;">Staff tools for this section.</p>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" id="manageCatsBtn">🏷️ Categories</button>
+          <button class="btn btn-primary btn-sm" id="addGameBtn">+ Add game</button>
+        </div>
+      </div>
+      <div class="chip-row" id="filterChips"></div>
+      <div class="subchip-row hidden" id="subChips"></div>
+      <div class="games-grid" id="gamesGrid"></div>
+    </div>
+  </section>
+
+  <!-- ===================== TOURNAMENTS ===================== -->
+  <section class="view" id="view-tournaments">
+    <div class="wrap">
+      <div class="row-between">
+        <div>
+          <div class="eyebrow">Compete</div>
+          <h2 class="section-title">Tournaments</h2>
+        </div>
+      </div>
+      <div class="row-between admin-zone" style="margin-bottom:6px;">
+        <p class="section-sub" style="margin:0;">Staff tools for this section.</p>
+        <button class="btn btn-primary btn-sm" id="addTournamentBtn">+ Add tournament</button>
+      </div>
+      <div id="tournamentList"></div>
+
+      <div style="margin-top:40px;">
+        <div class="eyebrow">Standings</div>
+        <h2 class="section-title">Leaderboard</h2>
+        <p class="section-sub">Top players across all active tournaments — combined points from every event.</p>
+        <div class="row-between admin-zone" style="margin-bottom:6px;">
+          <p class="section-sub" style="margin:0;">Staff tools for this section.</p>
+          <button class="btn btn-primary btn-sm" id="addLbEntryBtn">+ Add entry</button>
+        </div>
+        <div class="card hscroll" style="overflow-x:auto;">
+          <table class="lb-table" id="leaderboardTable"></table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== PACKAGES ===================== -->
+  <section class="view" id="view-packages">
+    <div class="wrap">
+      <div class="eyebrow">Passes</div>
+      <h2 class="section-title">Packages &amp; passes</h2>
+      <p class="section-sub">Walk in for an hour, or lock in a season pass.</p>
+      <div class="row-between admin-zone" style="margin-bottom:6px;">
+        <p class="section-sub" style="margin:0;">Staff tools for this section.</p>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" id="viewReservationsBtn">📋 Reservations</button>
+          <button class="btn btn-primary btn-sm" id="addPackageBtn">+ Add package</button>
+        </div>
+      </div>
+      <div class="packages-grid" id="packagesGrid"></div>
+    </div>
+  </section>
+
+
+</main>
+
+<footer>RESPAWN Game Café — Built for players, not spectators.</footer>
+
+<!-- ===== Modals ===== -->
+<div class="modal-backdrop" id="gameModalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="gameModalTitle">Add game</h3>
+      <button class="modal-close" data-close="gameModalBackdrop">&times;</button>
+    </div>
+    <form id="gameForm">
+      <input type="hidden" id="gameId">
+      <div class="field"><label>Game name</label><input type="text" id="gameName" required></div>
+      <div class="field">
+        <label>Cover image</label>
+        <input type="text" id="gameImg" placeholder="assets/your-image.jpg or paste a URL" required>
+        <label class="file-drop" style="margin-top:8px;">
+          <span>📷 Upload cover photo from device</span>
+          <input type="file" id="gameImgFile" accept="image/*">
+        </label>
+        <div class="cover-preview" id="coverPreview"><img id="coverPreviewImg" alt=""></div>
+      </div>
+      <div class="field"><label>Description</label><textarea id="gameDesc" placeholder="Short blurb shown on the hero card"></textarea></div>
+      <div class="field">
+        <label>Gameplay photos</label>
+        <label class="file-drop">
+          <span>🖼️ Add gameplay screenshots (multiple allowed)</span>
+          <input type="file" id="galleryFile" accept="image/*" multiple>
+        </label>
+        <div class="gallery-preview" id="galleryPreview"></div>
+      </div>
+      <div class="field">
+        <label>Gameplay video clip</label>
+        <label class="file-drop">
+          <span>🎬 Upload a gameplay video clip</span>
+          <input type="file" id="videoFile" accept="video/*">
+        </label>
+        <div class="hint-text">Or link a hosted clip instead:</div>
+        <input type="url" id="videoUrl" placeholder="https://... direct video link">
+        <div class="video-preview" id="videoPreviewWrap">
+          <video id="videoPreview" controls muted></video>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm video-clear" id="clearVideoBtn" style="display:none;">Remove video</button>
+      </div>
+      <div class="field">
+        <label>Categories</label>
+        <div class="check-grid" id="gameCatGrid"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Price / hr (LKR)</label><input type="number" id="gamePrice" min="0" required></div>
+        <div class="field"><label>Slots open</label><input type="text" id="gameSlots" placeholder="e.g. 4 open"></div>
+      </div>
+      <div class="field">
+        <label>Ambient theme (used for the background when this game is featured)</label>
+        <div class="swatch-row">
+          <input type="color" id="gameBase" value="#16283a">
+          <input type="color" id="gameAccent" value="#ffb627">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px;">Save game</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="packageModalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="packageModalTitle">Add package</h3>
+      <button class="modal-close" data-close="packageModalBackdrop">&times;</button>
+    </div>
+    <form id="packageForm">
+      <input type="hidden" id="packageId">
+      <div class="field"><label>Package name</label><input type="text" id="packageName" required></div>
+      <div class="field-row">
+        <div class="field"><label>Price (LKR)</label><input type="number" id="packagePrice" min="0" required></div>
+        <div class="field"><label>Unit (e.g. /hour)</label><input type="text" id="packageUnit" placeholder="/hour" required></div>
+      </div>
+      <div class="field"><label>Features (one per line)</label><textarea id="packageFeatures" placeholder="Any single station&#10;No booking needed"></textarea></div>
+      <div class="field">
+        <label>Who can play</label>
+        <div class="check-grid" id="pkgCatGrid"></div>
+      </div>
+      <div class="field"><label>Duration in minutes (leave blank for a pass with no fixed slot, e.g. weekend pass)</label><input type="number" id="packageDuration" min="0" placeholder="e.g. 60"></div>
+      <label class="check-pill" style="margin-bottom:14px;"><input type="checkbox" id="packageHighlight">Mark as "Most booked"</label>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">Save package</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="categoryModalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Manage categories</h3>
+      <button class="modal-close" data-close="categoryModalBackdrop">&times;</button>
+    </div>
+    <p class="section-sub" style="margin:0 0 12px;">Add or remove game/package categories (e.g. Solo, Duo, FPS). New ones show up as filter chips and checkboxes everywhere.</p>
+    <form id="categoryForm" class="field-row" style="align-items:end;">
+      <div class="field" style="margin-bottom:0;"><label>New category name</label><input type="text" id="categoryName" placeholder="e.g. Horror" required></div>
+      <button type="submit" class="btn btn-primary btn-sm" style="height:44px;">+ Add</button>
+    </form>
+    <div id="adminCategoriesList" style="margin-top:14px;"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="reservationsModalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Reservations</h3>
+      <button class="modal-close" data-close="reservationsModalBackdrop">&times;</button>
+    </div>
+    <p class="section-sub" style="margin:0 0 12px;">Bookings made by customers on the Reservation flow.</p>
+    <div id="adminReservationsList"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="reserveModalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Reserve a station</h3>
+      <button class="modal-close" data-close="reserveModalBackdrop">&times;</button>
+    </div>
+    <form id="reserveForm">
+      <div class="field"><label>Game</label>
+        <select id="resGame" required></select>
+      </div>
+      <div class="field"><label>Package</label>
+        <select id="resPackage" required></select>
+      </div>
+      <div id="resPriceDisplay" class="package-price" style="margin:0 0 14px;"></div>
+      <div class="field-row">
+        <div class="field"><label>Date</label><input type="date" id="resDate" required></div>
+        <div class="field"><label>Start time</label><input type="time" id="resTime" required></div>
+      </div>
+      <div class="field"><label>Your name</label><input type="text" id="resName" placeholder="For staff to call you" required></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">Confirm reservation</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="announceModalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="tournamentModalTitle">Add tournament</h3>
+      <button class="modal-close" data-close="announceModalBackdrop">&times;</button>
+    </div>
+    <form id="announceForm">
+      <input type="hidden" id="tId">
+      <div class="field"><label>Tournament title</label><input type="text" id="tName" required></div>
+      <div class="field"><label>Game</label>
+        <select id="tGame" required></select>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Event date</label><input type="date" id="tDate" required></div>
+        <div class="field"><label>Registration deadline</label><input type="date" id="tRegDeadline"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Slots</label><input type="text" id="tSlots" placeholder="e.g. 16 teams"></div>
+        <div class="field"><label>Registration fee (LKR, blank = free)</label><input type="number" id="tFee" min="0" placeholder="e.g. 500"></div>
+      </div>
+      <div class="field"><label>Prize pool (LKR)</label><input type="text" id="tPrize" placeholder="e.g. 5,000"></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">Save tournament</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="registerModalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Tournament registration</h3>
+      <button class="modal-close" data-close="registerModalBackdrop">&times;</button>
+    </div>
+    <p class="section-sub" id="registerTournamentName" style="margin:0 0 16px;"></p>
+
+    <div class="reg-step show" id="regStepEmail">
+      <div class="field"><label>Email address</label><input type="email" id="regEmail" placeholder="you@example.com" required></div>
+      <button type="button" class="btn btn-primary" id="regSendCodeBtn" style="width:100%;justify-content:center;">Send verification code</button>
+      <p class="hint-text">Demo build — since there's no email server connected yet, your code shows up right here instead of your inbox. Hook this up to a real email/OTP service before launch.</p>
+    </div>
+
+    <div class="reg-step" id="regStepVerify">
+      <span class="verified-tag">✉️ Code sent</span>
+      <div class="field"><label>Enter the 6-digit code</label><input type="text" id="regCodeInput" inputmode="numeric" maxlength="6" placeholder="123456"></div>
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn btn-primary" id="regVerifyBtn" style="flex:1;justify-content:center;">Verify</button>
+        <button type="button" class="btn btn-ghost" id="regResendBtn">Resend</button>
+      </div>
+    </div>
+
+    <div class="reg-step" id="regStepDetails">
+      <span class="verified-tag">✓ Email verified</span>
+      <form id="regDetailsForm">
+        <div class="field"><label>Real name</label><input type="text" id="regRealName" required></div>
+        <div class="field"><label>Username</label><input type="text" id="regUsername" placeholder="@yourtag" required></div>
+        <div class="field"><label>Phone number</label><input type="text" id="regPhone" placeholder="07X XXX XXXX" required></div>
+        <div class="field">
+          <label>Profile picture</label>
+          <label class="file-drop">
+            <span>📷 Upload a profile photo</span>
+            <input type="file" id="regPhotoFile" accept="image/*">
+          </label>
+          <div class="avatar-preview" id="regAvatarPreview"></div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">Complete registration</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="registrantsModalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="registrantsModalTitle">Registrants</h3>
+      <button class="modal-close" data-close="registrantsModalBackdrop">&times;</button>
+    </div>
+    <p class="section-sub" style="margin:0 0 12px;">Approve once the registration fee is confirmed paid, or decline if it wasn't completed. Only approved players are pulled into the bracket generator.</p>
+    <div id="registrantsList"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="bracketModalBackdrop">
+  <div class="modal" style="max-width:720px;">
+    <div class="modal-head">
+      <h3 id="bracketModalTitle">Bracket</h3>
+      <button class="modal-close" data-close="bracketModalBackdrop">&times;</button>
+    </div>
+    <div class="row-between admin-zone" style="margin-bottom:14px;">
+      <p class="section-sub" style="margin:0;">Randomize seeds from approved registrants, then tap a player to advance them.</p>
+      <button class="btn btn-primary btn-sm" id="randomizeBracketBtn">🎲 Randomize bracket</button>
+    </div>
+    <div id="bracketChamp"></div>
+    <div class="bracket-scroll hscroll">
+      <div class="bracket-rounds" id="bracketRounds"></div>
+    </div>
+    <p class="empty-state" id="bracketEmpty" style="display:none;">No bracket yet — approve at least 2 registrants, then hit Randomize bracket.</p>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="tournamentLbModalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="tlbModalTitle">Leaderboard</h3>
+      <button class="modal-close" data-close="tournamentLbModalBackdrop">&times;</button>
+    </div>
+    <div class="row-between" style="margin-bottom:10px;">
+      <p class="section-sub" style="margin:0;">Top scores for this tournament.</p>
+      <button class="btn btn-primary btn-sm" id="tlbAddBtn" style="display:none;">+ Add entry</button>
+    </div>
+    <div class="card hscroll" style="overflow-x:auto;">
+      <table class="lb-table" id="tournamentLbTable"></table>
+    </div>
+    <p class="empty-state" id="tlbEmpty" style="display:none;">No scores logged yet.</p>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="lbEntryModalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="lbEntryModalTitle">Add leaderboard entry</h3>
+      <button class="modal-close" data-close="lbEntryModalBackdrop">&times;</button>
+    </div>
+    <form id="lbEntryForm">
+      <input type="hidden" id="lbEntryId">
+      <input type="hidden" id="lbEntryPhoto">
+      <div class="field">
+        <label>Player name</label>
+        <input type="text" id="lbEntryPlayer" list="lbPlayerList" placeholder="Type freely, or pick a registered username to claim their photo" required>
+        <datalist id="lbPlayerList"></datalist>
+        <div class="avatar-preview" id="lbEntryAvatarPreview"></div>
+      </div>
+      <div class="field" id="lbEntryGameField"><label>Game</label><input type="text" id="lbEntryGame" placeholder="e.g. Mortal Kombat 1"></div>
+      <div class="field"><label>Score</label><input type="number" id="lbEntryScore" required></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">Save entry</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="passModalBackdrop">
+  <div class="modal" style="max-width:340px;">
+    <div class="modal-head">
+      <h3>Staff access</h3>
+      <button class="modal-close" data-close="passModalBackdrop">&times;</button>
+    </div>
+    <p class="section-sub">Enter the staff passcode to turn on edit mode across the site.</p>
+    <input type="text" id="passInput" placeholder="PASSCODE" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--ink);text-align:center;letter-spacing:0.3em;font-size:16px;margin:14px 0;">
+    <button class="btn btn-primary" id="passUnlockBtn" style="width:100%;justify-content:center;">Unlock</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="gameDetailBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="detailTitle">Game</h3>
+      <button class="modal-close" data-close="gameDetailBackdrop">&times;</button>
+    </div>
+    <div class="detail-cover"><img id="detailCoverImg" alt=""></div>
+    <p id="detailDesc" style="color:var(--ink-dim);font-size:13.5px;margin-bottom:6px;"></p>
+
+    <div id="detailVideoWrap" style="display:none;">
+      <div class="detail-sub-label">Gameplay clip</div>
+      <div class="detail-video"><video id="detailVideo" controls></video></div>
+    </div>
+
+    <div id="detailGalleryWrap" style="display:none;">
+      <div class="detail-sub-label">Screenshots</div>
+      <div class="detail-gallery hscroll" id="detailGallery"></div>
+    </div>
+
+    <p id="detailEmptyNote" class="empty-state" style="display:none;">No gameplay photos or clips added yet — check back soon.</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================================================================
+   STATE — everything lives in memory for this session
+=================================================================== */
+const state = {
+  games: [
+    { id:'g1', name:'God of War', img:'assets/god-of-war.jpg', desc:'Nordic myth, a father, a son, and an axe that always comes home.', cats:['story','pc'], price:120, slots:'3 open', base:'#16283a', accent:'#c94b3f', gallery:[], video:'' },
+    { id:'g2', name:'EA Sports FC 26', img:'assets/fc26.jpg', desc:'Champions League nights, your squad, your tactics.', cats:['squad','pc'], price:100, slots:'6 open', base:'#0d1b2e', accent:'#e0313f', gallery:[], video:'' },
+    { id:'g3', name:'Mortal Kombat 1', img:'assets/mk1.jpg', desc:'New era, new fatalities. Bring a friend for tag-team.', cats:['duo','story','pc'], price:110, slots:'4 open', base:'#12283d', accent:'#ff7a1a', gallery:[], video:'' },
+    { id:'g4', name:'Mortal Kombat 11', img:'assets/mk11.jpg', desc:'The scarred veteran of the fight roster — still hits hard.', cats:['duo','story','pc'], price:90, slots:'5 open', base:'#2b1706', accent:'#ffb627', gallery:[], video:'' },
+    { id:'g5', name:'Fortnite', img:'assets/fortnite.jpg', desc:'Drop in, squad up, last team standing takes the Victory Royale.', cats:['squad','pc'], price:90, slots:'8 open', base:'#241633', accent:'#ff4e86', gallery:[], video:'' },
+    { id:'g6', name:'Euro Truck Simulator 2', img:'assets/ets2.png', desc:'Long hauls across Europe on the force-feedback rig.', cats:['racing','pc'], price:150, slots:'2 open', base:'#122a3d', accent:'#f2b705', gallery:[], video:'' },
+    { id:'g7', name:'EA Sports F1 22', img:'assets/f1-22.jpg', desc:'Grid start, full weekend format, wheel + pedals included.', cats:['racing','squad','pc'], price:150, slots:'2 open', base:'#391a12', accent:'#ff5b35', gallery:[], video:'' },
+    { id:'g8', name:'Forza Horizon 5', img:'assets/forza-horizon-5.jpg', desc:'Open-world Mexico, festival playlist, party convoy runs.', cats:['racing','squad','pc'], price:130, slots:'3 open', base:'#0c2b28', accent:'#38e6c8', gallery:[], video:'' },
+    { id:'g9', name:'EA Sports FC 25', img:'assets/fc25.webp', desc:"Last season's pitch, still one of the busiest bays.", cats:['squad','pc'], price:80, slots:'open', base:'#10240f', accent:'#7CFC8A', gallery:[], video:'' }
+  ],
+  packages: [
+    { id:'p1', name:'Walk-in', price:100, unit:'/hour', features:['Any single station','No booking needed','Pay at counter'], highlight:false, hidden:false, cats:['solo'], durationMinutes:60 },
+    { id:'p2', name:'Student Squad', price:360, unit:'/4 hrs · 4 people', features:['Student ID discount','Shared PC + console bay','Free snack round'], highlight:true, hidden:false, cats:['squad'], durationMinutes:240 },
+    { id:'p3', name:'Weekend Warrior', price:899, unit:'/weekend pass', features:['Unlimited Fri 6pm – Sun close','Priority queue','1 guest pass'], highlight:false, hidden:false, cats:['solo','duo','squad'], durationMinutes:null },
+    { id:'p4', name:'VIP Boss Room', price:2500, unit:'/private room, 3 hrs', features:['Sealed room, up to 8 people','Dedicated host','Custom snack menu'], highlight:false, hidden:false, cats:['squad'], durationMinutes:180 },
+
+    { id:'ps5-solo-15', name:'PS5 Solo', price:40, unit:'/15 min', features:['1 player','Any PS5 bay'], highlight:false, hidden:false, cats:['solo'], durationMinutes:15 },
+    { id:'ps5-solo-30', name:'PS5 Solo', price:75, unit:'/30 min', features:['1 player','Any PS5 bay'], highlight:false, hidden:false, cats:['solo'], durationMinutes:30 },
+    { id:'ps5-solo-60', name:'PS5 Solo', price:140, unit:'/1 hour', features:['1 player','Any PS5 bay'], highlight:false, hidden:false, cats:['solo'], durationMinutes:60 },
+    { id:'ps5-solo-120', name:'PS5 Solo', price:260, unit:'/2 hours', features:['1 player','Any PS5 bay'], highlight:false, hidden:false, cats:['solo'], durationMinutes:120 },
+
+    { id:'ps5-duo-15', name:'PS5 Duo', price:70, unit:'/15 min', features:['2 players','Shared PS5 bay'], highlight:false, hidden:false, cats:['duo'], durationMinutes:15 },
+    { id:'ps5-duo-30', name:'PS5 Duo', price:130, unit:'/30 min', features:['2 players','Shared PS5 bay'], highlight:false, hidden:false, cats:['duo'], durationMinutes:30 },
+    { id:'ps5-duo-60', name:'PS5 Duo', price:240, unit:'/1 hour', features:['2 players','Shared PS5 bay'], highlight:false, hidden:false, cats:['duo'], durationMinutes:60 },
+    { id:'ps5-duo-120', name:'PS5 Duo', price:450, unit:'/2 hours', features:['2 players','Shared PS5 bay'], highlight:false, hidden:false, cats:['duo'], durationMinutes:120 },
+
+    { id:'ps5-squad-15', name:'PS5 Squad', price:120, unit:'/15 min', features:['Up to 4 players','Squad bay'], highlight:false, hidden:false, cats:['squad'], durationMinutes:15 },
+    { id:'ps5-squad-30', name:'PS5 Squad', price:220, unit:'/30 min', features:['Up to 4 players','Squad bay'], highlight:false, hidden:false, cats:['squad'], durationMinutes:30 },
+    { id:'ps5-squad-60', name:'PS5 Squad', price:400, unit:'/1 hour', features:['Up to 4 players','Squad bay'], highlight:false, hidden:false, cats:['squad'], durationMinutes:60 },
+    { id:'ps5-squad-120', name:'PS5 Squad', price:750, unit:'/2 hours', features:['Up to 4 players','Squad bay'], highlight:false, hidden:false, cats:['squad'], durationMinutes:120 },
+
+    { id:'pc-15', name:'PC', price:35, unit:'/15 min', features:['Any PC station'], highlight:false, hidden:false, cats:['solo'], durationMinutes:15 },
+    { id:'pc-30', name:'PC', price:65, unit:'/30 min', features:['Any PC station'], highlight:false, hidden:false, cats:['solo'], durationMinutes:30 },
+    { id:'pc-60', name:'PC', price:120, unit:'/1 hour', features:['Any PC station'], highlight:false, hidden:false, cats:['solo'], durationMinutes:60 },
+    { id:'pc-120', name:'PC', price:220, unit:'/2 hours', features:['Any PC station'], highlight:false, hidden:false, cats:['solo'], durationMinutes:120 },
+
+    { id:'racing-15', name:'Racing Sim', price:50, unit:'/15 min', features:['Wheel + pedal rig'], highlight:false, hidden:false, cats:['solo'], durationMinutes:15 },
+    { id:'racing-30', name:'Racing Sim', price:90, unit:'/30 min', features:['Wheel + pedal rig'], highlight:false, hidden:false, cats:['solo'], durationMinutes:30 },
+    { id:'racing-60', name:'Racing Sim', price:160, unit:'/1 hour', features:['Wheel + pedal rig'], highlight:false, hidden:false, cats:['solo'], durationMinutes:60 },
+    { id:'racing-120', name:'Racing Sim', price:300, unit:'/2 hours', features:['Wheel + pedal rig'], highlight:false, hidden:false, cats:['solo'], durationMinutes:120 }
+  ],
+  reservations: [],
+  tournaments: [
+    { id:'t1', name:'Friday Night Kombat', game:'g3', date:'2026-07-17', regDeadline:'2026-07-16', fee:'', slots:'16 players', prize:'6,000',
+      leaderboard:[
+        { id:'tlb1', player:'ShadowByte', score:2140, photo:'' },
+        { id:'tlb2', player:'Kx.Rev', score:1870, photo:'' }
+      ],
+      registrations:[],
+      bracket:null },
+    { id:'t2', name:'FC26 Squad Cup', game:'g2', date:'2026-07-24', regDeadline:'2026-07-22', fee:'', slots:'8 teams', prize:'10,000',
+      leaderboard:[],
+      registrations:[],
+      bracket:null }
+  ],
+  leaderboard: [
+    { id:'lb1', player:'ShadowByte', game:'Mortal Kombat 1', score:2140, photo:'' },
+    { id:'lb2', player:'ApexNova', game:'EA Sports FC 26', score:1985, photo:'' },
+    { id:'lb3', player:'Kx.Rev', game:'Fortnite', score:1870, photo:'' },
+    { id:'lb4', player:'DriftKing', game:'Forza Horizon 5', score:1755, photo:'' },
+    { id:'lb5', player:'PaddockPilot', game:'EA Sports F1 22', score:1690, photo:'' }
+  ]
+};
+
+const ADMIN_PASS = 'warencarpadinna69';
+let catLabel = { solo:'Solo', duo:'Duo', squad:'Squad', story:'Story Mode', racing:'Racing Sim', pc:'PC', ps5:'PS5', fps:'FPS', sports:'Sports', fighting:'Fighting' };
+
+/* ---------- Edit mode (inline admin controls, replaces the old Admin tab) ---------- */
+let editMode = false;
+function setEditMode(on){
+  editMode = on;
+  document.body.classList.toggle('edit-mode-on', on);
+  document.getElementById('editModeToggle').textContent = on ? '🔓 Edit mode' : '🔒 Edit';
+  renderGamesGrid();
+  renderTournaments();
+  renderLeaderboard();
+  renderPackages();
+}
+
+document.getElementById('editModeToggle').addEventListener('click', () => {
+  if(editMode){
+    setEditMode(false);
+  } else {
+    document.getElementById('passInput').value = '';
+    openModal('passModalBackdrop');
+  }
+});
+document.getElementById('passUnlockBtn').addEventListener('click', () => {
+  const val = document.getElementById('passInput').value.trim().toLowerCase();
+  if(val === ADMIN_PASS){
+    closeModal('passModalBackdrop');
+    setEditMode(true);
+    toast('Edit mode on');
+  } else {
+    toast('Wrong passcode');
+  }
+});
+
+/* ---------- Tournament registration (email verify + profile) ---------- */
+let regContext = { tournamentId: null };
+let regPendingCode = null;
+let regVerifiedEmail = null;
+let regPhotoDraft = '';
+let registrantsContext = null;
+
+/* ---------- Per-tournament leaderboard + shared leaderboard-entry modal ---------- */
+let tlbContext = null;
+let lbEditCtx = { scope:'overall' };
+let bracketContext = null;
+
+function renderGameCatGrid(checkedCats = []){
+  const grid = document.getElementById('gameCatGrid');
+  if(!grid) return;
+  grid.innerHTML = Object.keys(catLabel).map(k => `
+    <label class="check-pill"><input type="checkbox" value="${k}" class="gameCat" ${checkedCats.includes(k)?'checked':''}>${catLabel[k]}</label>
+  `).join('');
+}
+function renderPkgCatGrid(checkedCats = []){
+  const grid = document.getElementById('pkgCatGrid');
+  if(!grid) return;
+  grid.innerHTML = Object.keys(catLabel).map(k => `
+    <label class="check-pill"><input type="checkbox" value="${k}" class="pkgCat" ${checkedCats.includes(k)?'checked':''}>${catLabel[k]}</label>
+  `).join('');
+}
+
+function slugify(label){
+  return label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'cat' + Date.now();
+}
+
+function renderAdminCategories(){
+  const wrap = document.getElementById('adminCategoriesList');
+  if(!wrap) return;
+  wrap.innerHTML = Object.keys(catLabel).map(k => `
+    <div class="admin-list-row">
+      <div class="info"><h5>${catLabel[k]}</h5><div class="sub">key: ${k}</div></div>
+      <div class="actions"><button class="icon-btn" data-del-cat="${k}">🗑</button></div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('categoryForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const input = document.getElementById('categoryName');
+  const label = input.value.trim();
+  if(!label) return;
+  const key = slugify(label);
+  if(catLabel[key]){ toast('That category already exists'); return; }
+  catLabel[key] = label;
+  input.value = '';
+  renderAdminCategories();
+  renderFilters(); renderGamesGrid();
+  toast('Category added');
+});
+
+document.getElementById('adminCategoriesList').addEventListener('click', e => {
+  const key = e.target.closest('[data-del-cat]')?.dataset.delCat;
+  if(!key) return;
+  delete catLabel[key];
+  renderAdminCategories();
+  renderFilters(); renderGamesGrid();
+  toast('Category removed');
+});
+
+/* ---------- Media draft state (used while the game form modal is open) ---------- */
+let galleryDraft = [];
+let videoDraft = '';
+
+function fileToDataURL(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function setCoverPreview(src){
+  const wrap = document.getElementById('coverPreview');
+  const img = document.getElementById('coverPreviewImg');
+  if(src){ img.src = src; wrap.classList.add('show'); }
+  else { img.src=''; wrap.classList.remove('show'); }
+}
+
+function renderGalleryPreview(){
+  const wrap = document.getElementById('galleryPreview');
+  wrap.innerHTML = galleryDraft.map((src,i) => `
+    <div class="gthumb"><img src="${src}" alt="gameplay shot"><button type="button" data-remove-gallery="${i}">&times;</button></div>
+  `).join('');
+}
+
+function setVideoPreview(src){
+  const wrap = document.getElementById('videoPreviewWrap');
+  const vid = document.getElementById('videoPreview');
+  const clearBtn = document.getElementById('clearVideoBtn');
+  if(src){ vid.src = src; wrap.classList.add('show'); clearBtn.style.display='inline-flex'; }
+  else { vid.pause(); vid.removeAttribute('src'); vid.load(); wrap.classList.remove('show'); clearBtn.style.display='none'; }
+}
+
+document.getElementById('gameImg').addEventListener('input', e => setCoverPreview(e.target.value));
+
+document.getElementById('gameImgFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const dataUrl = await fileToDataURL(file);
+  document.getElementById('gameImg').value = dataUrl;
+  setCoverPreview(dataUrl);
+});
+
+document.getElementById('galleryFile').addEventListener('change', async e => {
+  const files = [...e.target.files];
+  for(const file of files){
+    const dataUrl = await fileToDataURL(file);
+    galleryDraft.push(dataUrl);
+  }
+  renderGalleryPreview();
+  e.target.value = '';
+});
+
+document.getElementById('galleryPreview').addEventListener('click', e => {
+  const btn = e.target.closest('[data-remove-gallery]');
+  if(!btn) return;
+  galleryDraft.splice(Number(btn.dataset.removeGallery), 1);
+  renderGalleryPreview();
+});
+
+document.getElementById('videoFile').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const objUrl = URL.createObjectURL(file);
+  videoDraft = objUrl;
+  document.getElementById('videoUrl').value = '';
+  setVideoPreview(objUrl);
+});
+
+document.getElementById('videoUrl').addEventListener('change', e => {
+  if(e.target.value){
+    videoDraft = e.target.value;
+    setVideoPreview(videoDraft);
+  }
+});
+
+document.getElementById('clearVideoBtn').addEventListener('click', () => {
+  videoDraft = '';
+  document.getElementById('videoUrl').value = '';
+  document.getElementById('videoFile').value = '';
+  setVideoPreview('');
+});
+
+/* ===================================================================
+   TABS
+=================================================================== */
+document.getElementById('tabs').addEventListener('click', e => {
+  const btn = e.target.closest('.tab-btn');
+  if(!btn) return;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + btn.dataset.view).classList.add('active');
+  window.scrollTo({top:0, behavior:'smooth'});
+});
+
+/* ===================================================================
+   AMBIENT BACKGROUND CROSSFADE
+=================================================================== */
+let bgTop = 'A';
+function paintBg(base, accent){
+  const showing = document.getElementById('bg' + bgTop);
+  const nextId = bgTop === 'A' ? 'B' : 'A';
+  const next = document.getElementById('bg' + nextId);
+  next.style.background =
+    `radial-gradient(circle at 25% 15%, ${accent}33, transparent 45%),` +
+    `radial-gradient(circle at 80% 85%, ${accent}22, transparent 50%),` +
+    `linear-gradient(160deg, ${base} 0%, #0b0a12 68%)`;
+  next.style.opacity = '1';
+  showing.style.opacity = '0';
+  bgTop = nextId;
+}
+paintBg(state.games[0].base, state.games[0].accent);
+
+/* ===================================================================
+   TOAST
+=================================================================== */
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ===================================================================
+   HOME — hero carousel + shelf
+=================================================================== */
+function renderHero(){
+  const carousel = document.getElementById('heroCarousel');
+  const dots = document.getElementById('heroDots');
+  carousel.innerHTML = state.games.map(g => `
+    <div class="hero-card" data-id="${g.id}">
+      <img src="${g.img}" alt="${g.name}">
+      <div class="grad"></div>
+      <div class="info">
+        <span class="badge">${g.cats.map(c=>catLabel[c]||c).join(' · ')}</span>
+        <h3>${g.name}</h3>
+        <p>${g.desc}</p>
+        <button class="cta" data-reserve-game="${g.id}">Reservation →</button>
+      </div>
+    </div>
+  `).join('');
+  dots.innerHTML = state.games.map((g,i) => `<span class="${i===0?'on':''}"></span>`).join('');
+
+  let lastIdx = 0;
+  carousel.addEventListener('scroll', () => {
+    const firstCard = carousel.querySelector('.hero-card');
+    if(!firstCard) return;
+    const cardW = firstCard.getBoundingClientRect().width + 14;
+    const idx = Math.round(carousel.scrollLeft / cardW);
+    if(idx !== lastIdx && state.games[idx]){
+      lastIdx = idx;
+      const g = state.games[idx];
+      paintBg(g.base, g.accent);
+      [...dots.children].forEach((d,i) => d.classList.toggle('on', i===idx));
+    }
+  }, { passive:true });
+
+  carousel.addEventListener('click', e => {
+    const btn = e.target.closest('[data-reserve-game]');
+    if(btn) openReserveModal({ gameId: btn.dataset.reserveGame });
+  });
+}
+
+function renderShelf(){
+  const row = document.getElementById('shelfRow');
+  row.innerHTML = state.games.map(g => `
+    <div class="poster" data-id="${g.id}">
+      <img src="${g.img}" alt="${g.name}">
+      <div class="plabel">${g.name}</div>
+    </div>
+  `).join('');
+  row.addEventListener('click', () => {
+    document.querySelector('.tab-btn[data-view="games"]').click();
+  });
+}
+
+/* ===================================================================
+   GAMES — filters + grid
+=================================================================== */
+let activeFilter = 'all';
+let activeSub = null;
+
+function renderFilters(){
+  const chips = document.getElementById('filterChips');
+  const defs = [
+    {k:'all', label:'All'},
+    {k:'multiplayer', label:'Multiplayer'},
+    ...Object.keys(catLabel).filter(k => k !== 'duo' && k !== 'squad').map(k => ({k, label:catLabel[k]}))
+  ];
+  chips.innerHTML = defs.map(d => `<button class="chip ${activeFilter===d.k?'active':''}" data-filter="${d.k}">${d.label}</button>`).join('');
+
+  const sub = document.getElementById('subChips');
+  if(activeFilter === 'multiplayer'){
+    sub.classList.remove('hidden');
+    sub.innerHTML = ['duo','squad'].filter(k => catLabel[k]).map(k => `<button class="chip ${activeSub===k?'active':''}" data-sub="${k}">${catLabel[k]}</button>`).join('');
+  } else {
+    sub.classList.add('hidden');
+    sub.innerHTML = '';
+    activeSub = null;
+  }
+}
+
+function renderGamesGrid(){
+  let list = state.games;
+  if(activeFilter === 'multiplayer'){
+    list = list.filter(g => g.cats.includes('duo') || g.cats.includes('squad'));
+    if(activeSub) list = list.filter(g => g.cats.includes(activeSub));
+  } else if(activeFilter !== 'all'){
+    list = list.filter(g => g.cats.includes(activeFilter));
+  }
+
+  const grid = document.getElementById('gamesGrid');
+  if(!list.length){
+    grid.innerHTML = '<div class="empty-state">No games in this category yet.</div>';
+    return;
+  }
+  grid.innerHTML = list.map(g => `
+    <div class="game-card">
+      <div class="thumb">
+        <img src="${g.img}" alt="${g.name}">
+        ${editMode ? `<div class="card-admin-ctrl">
+          <button class="icon-btn" data-edit-game="${g.id}">✎</button>
+          <button class="icon-btn" data-del-game="${g.id}">🗑</button>
+        </div>` : ''}
+      </div>
+      <div class="body">
+        <h4>${g.name}</h4>
+        <div class="tagset">${g.cats.map(c => `<span>${catLabel[c]||c}</span>`).join('')}</div>
+        <div class="meta"><span class="price">LKR ${g.price}/hr</span><span>${g.slots}</span></div>
+        <button class="btn btn-primary btn-sm" style="width:100%;justify-content:center;margin-top:8px;" data-reserve-game="${g.id}">Reserve</button>
+        <button class="media-btn" data-view-media="${g.id}">🎮 Screens &amp; clips</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('filterChips').addEventListener('click', e => {
+  const btn = e.target.closest('[data-filter]');
+  if(!btn) return;
+  activeFilter = btn.dataset.filter;
+  activeSub = null;
+  renderFilters();
+  renderGamesGrid();
+});
+document.getElementById('subChips').addEventListener('click', e => {
+  const btn = e.target.closest('[data-sub]');
+  if(!btn) return;
+  activeSub = activeSub === btn.dataset.sub ? null : btn.dataset.sub;
+  renderFilters();
+  renderGamesGrid();
+});
+
+document.getElementById('gamesGrid').addEventListener('click', e => {
+  const mediaBtn = e.target.closest('[data-view-media]');
+  if(mediaBtn){ openGameDetail(mediaBtn.dataset.viewMedia); return; }
+  const resBtn = e.target.closest('[data-reserve-game]');
+  if(resBtn){ openReserveModal({ gameId: resBtn.dataset.reserveGame }); return; }
+  const editId = e.target.closest('[data-edit-game]')?.dataset.editGame;
+  if(editId){
+    const g = state.games.find(x => x.id === editId);
+    document.getElementById('gameModalTitle').textContent = 'Edit game';
+    document.getElementById('gameId').value = g.id;
+    document.getElementById('gameName').value = g.name;
+    document.getElementById('gameImg').value = g.img;
+    document.getElementById('gameDesc').value = g.desc;
+    document.getElementById('gamePrice').value = g.price;
+    document.getElementById('gameSlots').value = g.slots;
+    document.getElementById('gameBase').value = g.base;
+    document.getElementById('gameAccent').value = g.accent;
+    renderGameCatGrid(g.cats);
+    setCoverPreview(g.img);
+    galleryDraft = (g.gallery || []).slice();
+    renderGalleryPreview();
+    videoDraft = g.video || '';
+    document.getElementById('videoUrl').value = (videoDraft && !videoDraft.startsWith('blob:')) ? videoDraft : '';
+    setVideoPreview(videoDraft || '');
+    openModal('gameModalBackdrop');
+    return;
+  }
+  const delId = e.target.closest('[data-del-game]')?.dataset.delGame;
+  if(delId){
+    state.games = state.games.filter(x => x.id !== delId);
+    renderGamesGrid(); renderHero(); renderShelf();
+    toast('Game removed');
+  }
+});
+
+document.getElementById('manageCatsBtn').addEventListener('click', () => {
+  renderAdminCategories();
+  openModal('categoryModalBackdrop');
+});
+
+function openGameDetail(id){
+  const g = state.games.find(x => x.id === id);
+  if(!g) return;
+  document.getElementById('detailTitle').textContent = g.name;
+  document.getElementById('detailDesc').textContent = g.desc || '';
+  document.getElementById('detailCoverImg').src = g.img;
+
+  const videoWrap = document.getElementById('detailVideoWrap');
+  if(g.video){
+    document.getElementById('detailVideo').src = g.video;
+    videoWrap.style.display = 'block';
+  } else {
+    videoWrap.style.display = 'none';
+  }
+
+  const galleryWrap = document.getElementById('detailGalleryWrap');
+  const galleryRow = document.getElementById('detailGallery');
+  if(g.gallery && g.gallery.length){
+    galleryRow.innerHTML = g.gallery.map(src => `<img src="${src}" alt="${g.name} gameplay screenshot">`).join('');
+    galleryWrap.style.display = 'block';
+  } else {
+    galleryWrap.style.display = 'none';
+  }
+
+  const emptyNote = document.getElementById('detailEmptyNote');
+  emptyNote.style.display = (!g.video && (!g.gallery || !g.gallery.length)) ? 'block' : 'none';
+
+  openModal('gameDetailBackdrop');
+}
+
+/* ===================================================================
+   TOURNAMENTS + LEADERBOARD
+=================================================================== */
+function renderTournaments(){
+  const wrap = document.getElementById('tournamentList');
+  if(!state.tournaments.length){
+    wrap.innerHTML = '<div class="empty-state">No tournaments announced yet.</div>';
+    return;
+  }
+  const today = new Date().toISOString().slice(0,10);
+  wrap.innerHTML = state.tournaments.map(t => {
+    const g = state.games.find(x => x.id === t.game) || {};
+    const regCount = (t.registrations || []).length;
+    const approvedCount = (t.registrations || []).filter(r => r.status === 'approved').length;
+    const regClosed = !!(t.regDeadline && today > t.regDeadline);
+    return `
+      <div class="card tourn-card">
+        <img src="${g.img||''}" alt="${g.name||''}">
+        <div class="t-body">
+          <h4>${t.name}</h4>
+          <div class="t-meta">
+            <span>${g.name||'—'}</span>
+            <span>📅 Event: ${t.date}</span>
+            ${t.regDeadline ? `<span>⏳ Register by: ${t.regDeadline}</span>` : ''}
+            <span>${t.slots||''}</span>
+            ${t.fee ? `<span>Fee: LKR ${t.fee}</span>` : ''}
+          </div>
+        </div>
+        <div class="prize">LKR ${t.prize||'—'}</div>
+        <div class="tourn-actions">
+          ${regClosed
+            ? `<button class="btn btn-ghost btn-sm" disabled>🔒 Registration closed</button>`
+            : `<button class="btn btn-primary btn-sm" data-register-tourn="${t.id}">🏆 Register</button>`}
+          <button class="btn btn-ghost btn-sm" data-view-tlb="${t.id}">📊 Leaderboard</button>
+          <button class="btn btn-ghost btn-sm" data-view-bracket="${t.id}">🧩 Bracket</button>
+          ${editMode ? `
+            <button class="btn btn-ghost btn-sm" data-registrants-tourn="${t.id}">👥 Registrants (${approvedCount}/${regCount})</button>
+            <button class="btn btn-ghost btn-sm" data-edit-tourn="${t.id}">✎ Edit</button>
+            <button class="btn btn-ghost btn-sm" data-del-tourn="${t.id}">🗑 Delete</button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function lbAvatarHtml(r){
+  return r.photo
+    ? `<img class="lb-avatar" src="${r.photo}" alt="${r.player}">`
+    : `<div class="lb-avatar placeholder">${(r.player||'?').charAt(0).toUpperCase()}</div>`;
+}
+function renderLeaderboard(){
+  const table = document.getElementById('leaderboardTable');
+  const list = [...state.leaderboard].sort((a,b) => b.score - a.score);
+  table.innerHTML = `
+    <tr><th>#</th><th>Player</th><th>Game</th><th>Score</th>${editMode ? '<th></th>' : ''}</tr>
+    ${list.map((r,i) => `
+      <tr>
+        <td class="lb-rank">${i+1}</td>
+        <td><div class="lb-player-cell">${lbAvatarHtml(r)}<span>${r.player}</span></div></td>
+        <td>${r.game}</td>
+        <td>${r.score.toLocaleString()}</td>
+        ${editMode ? `<td style="text-align:right;white-space:nowrap;"><button class="icon-btn" data-edit-lb="${r.id}">✎</button> <button class="icon-btn" data-del-lb="${r.id}">🗑</button></td>` : ''}
+      </tr>
+    `).join('')}
+  `;
+}
+
+function populateTournamentGameSelect(){
+  const sel = document.getElementById('tGame');
+  sel.innerHTML = state.games.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+}
+
+document.getElementById('addTournamentBtn').addEventListener('click', () => {
+  document.getElementById('tournamentModalTitle').textContent = 'Add tournament';
+  document.getElementById('announceForm').reset();
+  document.getElementById('tId').value = '';
+  document.getElementById('tRegDeadline').value = '';
+  document.getElementById('tFee').value = '';
+  populateTournamentGameSelect();
+  openModal('announceModalBackdrop');
+});
+
+document.getElementById('tournamentList').addEventListener('click', e => {
+  const regBtn = e.target.closest('[data-register-tourn]');
+  if(regBtn){ openRegisterModal(regBtn.dataset.registerTourn); return; }
+  const lbBtn = e.target.closest('[data-view-tlb]');
+  if(lbBtn){ openTournamentLb(lbBtn.dataset.viewTlb); return; }
+  const regsBtn = e.target.closest('[data-registrants-tourn]');
+  if(regsBtn){ openRegistrantsModal(regsBtn.dataset.registrantsTourn); return; }
+  const bracketBtn = e.target.closest('[data-view-bracket]');
+  if(bracketBtn){ openBracketModal(bracketBtn.dataset.viewBracket); return; }
+  const editId = e.target.closest('[data-edit-tourn]')?.dataset.editTourn;
+  if(editId){
+    const t = state.tournaments.find(x => x.id === editId);
+    document.getElementById('tournamentModalTitle').textContent = 'Edit tournament';
+    populateTournamentGameSelect();
+    document.getElementById('tId').value = t.id;
+    document.getElementById('tName').value = t.name;
+    document.getElementById('tGame').value = t.game;
+    document.getElementById('tDate').value = t.date;
+    document.getElementById('tRegDeadline').value = t.regDeadline || '';
+    document.getElementById('tSlots').value = t.slots || '';
+    document.getElementById('tFee').value = t.fee || '';
+    document.getElementById('tPrize').value = t.prize || '';
+    openModal('announceModalBackdrop');
+    return;
+  }
+  const delId = e.target.closest('[data-del-tourn]')?.dataset.delTourn;
+  if(delId){
+    state.tournaments = state.tournaments.filter(x => x.id !== delId);
+    renderTournaments();
+    toast('Tournament removed');
+  }
+});
+
+document.getElementById('announceForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const id = document.getElementById('tId').value || 't' + Date.now();
+  const existingIdx = state.tournaments.findIndex(x => x.id === id);
+  const data = {
+    id,
+    name: document.getElementById('tName').value,
+    game: document.getElementById('tGame').value,
+    date: document.getElementById('tDate').value,
+    regDeadline: document.getElementById('tRegDeadline').value,
+    slots: document.getElementById('tSlots').value,
+    fee: document.getElementById('tFee').value,
+    prize: document.getElementById('tPrize').value,
+    leaderboard: existingIdx > -1 ? state.tournaments[existingIdx].leaderboard : [],
+    registrations: existingIdx > -1 ? state.tournaments[existingIdx].registrations : [],
+    bracket: existingIdx > -1 ? state.tournaments[existingIdx].bracket : null
+  };
+  if(existingIdx > -1) state.tournaments[existingIdx] = data;
+  else state.tournaments.unshift(data);
+
+  renderTournaments();
+  closeModal('announceModalBackdrop');
+  e.target.reset();
+  toast('Tournament saved');
+});
+
+document.getElementById('addLbEntryBtn').addEventListener('click', () => openLbEntryModal('overall'));
+
+document.getElementById('leaderboardTable').addEventListener('click', e => {
+  const editId = e.target.closest('[data-edit-lb]')?.dataset.editLb;
+  const delId = e.target.closest('[data-del-lb]')?.dataset.delLb;
+  if(editId){
+    const entry = state.leaderboard.find(x => x.id === editId);
+    openLbEntryModal('overall', null, entry);
+  }
+  if(delId){
+    state.leaderboard = state.leaderboard.filter(x => x.id !== delId);
+    renderLeaderboard();
+    toast('Entry removed');
+  }
+});
+
+/* ---------- Tournament registration flow (email + verification code + profile) ---------- */
+function showRegStep(id){
+  document.querySelectorAll('.reg-step').forEach(s => s.classList.toggle('show', s.id === id));
+}
+function genCode(){ return String(Math.floor(100000 + Math.random() * 900000)); }
+function setAvatarPreview(src){
+  const wrap = document.getElementById('regAvatarPreview');
+  if(src){ wrap.innerHTML = `<img src="${src}" alt="profile preview">`; wrap.classList.add('show'); }
+  else { wrap.innerHTML = ''; wrap.classList.remove('show'); }
+}
+
+function openRegisterModal(tournamentId){
+  const t = state.tournaments.find(x => x.id === tournamentId);
+  if(!t) return;
+  regContext = { tournamentId };
+  regPendingCode = null;
+  regVerifiedEmail = null;
+  regPhotoDraft = '';
+  document.getElementById('registerTournamentName').textContent = `Registering for: ${t.name}`;
+  document.getElementById('regEmail').value = '';
+  document.getElementById('regCodeInput').value = '';
+  document.getElementById('regDetailsForm').reset();
+  setAvatarPreview('');
+  showRegStep('regStepEmail');
+  openModal('registerModalBackdrop');
+}
+
+document.getElementById('regSendCodeBtn').addEventListener('click', () => {
+  const email = document.getElementById('regEmail').value.trim();
+  if(!email || !email.includes('@')){ toast('Enter a valid email'); return; }
+  regPendingCode = genCode();
+  regVerifiedEmail = email;
+  toast(`Demo verification code: ${regPendingCode}`);
+  showRegStep('regStepVerify');
+});
+document.getElementById('regResendBtn').addEventListener('click', () => {
+  regPendingCode = genCode();
+  toast(`New demo code: ${regPendingCode}`);
+});
+document.getElementById('regVerifyBtn').addEventListener('click', () => {
+  const val = document.getElementById('regCodeInput').value.trim();
+  if(val && val === regPendingCode){
+    toast('Email verified ✓');
+    showRegStep('regStepDetails');
+  } else {
+    toast('Incorrect code, try again');
+  }
+});
+document.getElementById('regPhotoFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  regPhotoDraft = await fileToDataURL(file);
+  setAvatarPreview(regPhotoDraft);
+});
+document.getElementById('regDetailsForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const t = state.tournaments.find(x => x.id === regContext.tournamentId);
+  if(!t || !regVerifiedEmail) return;
+  const entry = {
+    id: 'reg' + Date.now(),
+    email: regVerifiedEmail,
+    realName: document.getElementById('regRealName').value.trim(),
+    username: document.getElementById('regUsername').value.trim(),
+    phone: document.getElementById('regPhone').value.trim(),
+    photo: regPhotoDraft,
+    registeredAt: new Date().toISOString(),
+    status: 'pending',
+    feePaid: false
+  };
+  t.registrations = t.registrations || [];
+  t.registrations.push(entry);
+  closeModal('registerModalBackdrop');
+  renderTournaments();
+  toast(t.fee ? `Registered — pay the LKR ${t.fee} fee at the counter to get approved` : `You're registered for ${t.name}! Pending staff approval.`);
+});
+
+/* ---------- Registrants viewer (edit mode) ---------- */
+function openRegistrantsModal(tournamentId){
+  const t = state.tournaments.find(x => x.id === tournamentId);
+  if(!t) return;
+  registrantsContext = tournamentId;
+  document.getElementById('registrantsModalTitle').textContent = `Registrants — ${t.name}`;
+  renderRegistrantsList(t);
+  openModal('registrantsModalBackdrop');
+}
+function renderRegistrantsList(t){
+  const wrap = document.getElementById('registrantsList');
+  const list = t.registrations || [];
+  if(!list.length){
+    wrap.innerHTML = '<div class="empty-state">No registrations yet.</div>';
+    return;
+  }
+  const statusLabel = { pending:'Pending', approved:'Approved', declined:'Declined' };
+  wrap.innerHTML = list.map(r => {
+    const status = r.status || 'pending';
+    return `
+    <div class="admin-list-row registrant-row">
+      ${r.photo ? `<img src="${r.photo}" alt="${r.realName}">` : `<div style="width:44px;height:44px;border-radius:8px;background:rgba(255,255,255,0.08);flex-shrink:0;"></div>`}
+      <div class="info">
+        <h5>${r.realName} <span class="hidden-tag">@${r.username}</span><span class="status-badge ${status}">${statusLabel[status]}</span></h5>
+        <div class="sub">${r.phone} · ${r.email}${t.fee ? ` · Fee: LKR ${t.fee}` : ''}</div>
+        ${t.fee ? `<label class="fee-tag"><input type="checkbox" data-fee-registrant="${r.id}" ${r.feePaid ? 'checked' : ''}> Fee paid</label>` : ''}
+      </div>
+      <div class="actions">
+        <button class="btn btn-sm btn-approve" data-approve-registrant="${r.id}">✓ Approve</button>
+        <button class="btn btn-sm btn-decline" data-decline-registrant="${r.id}">✕ Decline</button>
+        <button class="icon-btn" data-del-registrant="${r.id}">🗑</button>
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+document.getElementById('registrantsList').addEventListener('click', e => {
+  const t = state.tournaments.find(x => x.id === registrantsContext);
+  if(!t) return;
+  const delId = e.target.closest('[data-del-registrant]')?.dataset.delRegistrant;
+  if(delId){
+    t.registrations = (t.registrations || []).filter(r => r.id !== delId);
+    renderRegistrantsList(t);
+    renderTournaments();
+    toast('Registrant removed');
+    return;
+  }
+  const approveId = e.target.closest('[data-approve-registrant]')?.dataset.approveRegistrant;
+  if(approveId){
+    const r = (t.registrations || []).find(x => x.id === approveId);
+    if(r){
+      r.status = 'approved';
+      renderRegistrantsList(t);
+      renderTournaments();
+      toast(`${r.realName} approved`);
+    }
+    return;
+  }
+  const declineId = e.target.closest('[data-decline-registrant]')?.dataset.declineRegistrant;
+  if(declineId){
+    const r = (t.registrations || []).find(x => x.id === declineId);
+    if(r){
+      r.status = 'declined';
+      renderRegistrantsList(t);
+      renderTournaments();
+      toast(`${r.realName} declined — registration fee not completed`);
+    }
+    return;
+  }
+});
+document.getElementById('registrantsList').addEventListener('change', e => {
+  const feeId = e.target.closest('[data-fee-registrant]')?.dataset.feeRegistrant;
+  if(!feeId) return;
+  const t = state.tournaments.find(x => x.id === registrantsContext);
+  if(!t) return;
+  const r = (t.registrations || []).find(x => x.id === feeId);
+  if(r) r.feePaid = e.target.checked;
+});
+
+/* ---------- Per-tournament leaderboard ---------- */
+function openTournamentLb(tournamentId){
+  const t = state.tournaments.find(x => x.id === tournamentId);
+  if(!t) return;
+  tlbContext = tournamentId;
+  document.getElementById('tlbModalTitle').textContent = `Leaderboard — ${t.name}`;
+  document.getElementById('tlbAddBtn').style.display = editMode ? 'inline-flex' : 'none';
+  renderTournamentLbTable(t);
+  openModal('tournamentLbModalBackdrop');
+}
+function renderTournamentLbTable(t){
+  const table = document.getElementById('tournamentLbTable');
+  const empty = document.getElementById('tlbEmpty');
+  const list = [...(t.leaderboard || [])].sort((a,b) => b.score - a.score);
+  if(!list.length){
+    table.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  table.innerHTML = `
+    <tr><th>#</th><th>Player</th><th>Score</th>${editMode ? '<th></th>' : ''}</tr>
+    ${list.map((r,i) => `
+      <tr>
+        <td class="lb-rank">${i+1}</td>
+        <td><div class="lb-player-cell">${lbAvatarHtml(r)}<span>${r.player}</span></div></td>
+        <td>${r.score.toLocaleString()}</td>
+        ${editMode ? `<td style="text-align:right;white-space:nowrap;"><button class="icon-btn" data-edit-tlb="${r.id}">✎</button> <button class="icon-btn" data-del-tlb="${r.id}">🗑</button></td>` : ''}
+      </tr>
+    `).join('')}
+  `;
+}
+document.getElementById('tlbAddBtn').addEventListener('click', () => openLbEntryModal('tournament', tlbContext));
+document.getElementById('tournamentLbTable').addEventListener('click', e => {
+  const t = state.tournaments.find(x => x.id === tlbContext);
+  if(!t) return;
+  const editId = e.target.closest('[data-edit-tlb]')?.dataset.editTlb;
+  const delId = e.target.closest('[data-del-tlb]')?.dataset.delTlb;
+  if(editId){
+    const entry = (t.leaderboard || []).find(x => x.id === editId);
+    openLbEntryModal('tournament', tlbContext, entry);
+  }
+  if(delId){
+    t.leaderboard = (t.leaderboard || []).filter(x => x.id !== delId);
+    renderTournamentLbTable(t);
+    toast('Entry removed');
+  }
+});
+
+/* ---------- Tournament bracket: random draw + admin-controlled winner advancement ---------- */
+function nextPow2(n){ let p = 1; while(p < n) p *= 2; return p; }
+
+function generateBracket(t){
+  const approved = (t.registrations || []).filter(r => r.status === 'approved');
+  if(approved.length < 2){
+    toast('Need at least 2 approved registrants to build a bracket');
+    return;
+  }
+  // Fisher-Yates shuffle for a fair random draw
+  const shuffled = [...approved];
+  for(let i = shuffled.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const size = nextPow2(shuffled.length);
+  const slots = shuffled.map(r => ({ id: r.id, name: r.realName || r.username, username: r.username, photo: r.photo || '' }));
+  while(slots.length < size) slots.push(null); // null = bye
+
+  const numRounds = Math.log2(size);
+  const rounds = [];
+  const round0 = [];
+  for(let i = 0; i < size / 2; i++){
+    round0.push({ p1: slots[2*i], p2: slots[2*i+1], winner: null });
+  }
+  rounds.push(round0);
+  for(let r = 1; r < numRounds; r++){
+    const count = size / Math.pow(2, r + 1);
+    const arr = [];
+    for(let i = 0; i < count; i++) arr.push({ p1: null, p2: null, winner: null });
+    rounds.push(arr);
+  }
+  t.bracket = { rounds };
+  for(let i = 0; i < rounds[0].length; i++) resolveAutoBye(t.bracket, 0, i);
+  renderBracket(t);
+  toast('Bracket randomized');
+}
+
+function resolveAutoBye(bracket, roundIdx, matchIdx){
+  const m = bracket.rounds[roundIdx][matchIdx];
+  if(!m || m.winner) return;
+  if(m.p1 && !m.p2) m.winner = 'p1';
+  else if(m.p2 && !m.p1) m.winner = 'p2';
+  if(m.winner) advanceWinner(bracket, roundIdx, matchIdx);
+}
+
+function advanceWinner(bracket, roundIdx, matchIdx){
+  const m = bracket.rounds[roundIdx][matchIdx];
+  const winnerPlayer = m.winner === 'p1' ? m.p1 : m.p2;
+  if(roundIdx + 1 >= bracket.rounds.length) return;
+  const nextMatchIdx = Math.floor(matchIdx / 2);
+  const slot = matchIdx % 2 === 0 ? 'p1' : 'p2';
+  bracket.rounds[roundIdx+1][nextMatchIdx][slot] = winnerPlayer;
+  resolveAutoBye(bracket, roundIdx+1, nextMatchIdx);
+}
+
+function clearDownstream(bracket, roundIdx, matchIdx){
+  if(roundIdx + 1 >= bracket.rounds.length) return;
+  const nextMatchIdx = Math.floor(matchIdx / 2);
+  const slot = matchIdx % 2 === 0 ? 'p1' : 'p2';
+  const nextMatch = bracket.rounds[roundIdx+1][nextMatchIdx];
+  if(!nextMatch) return;
+  nextMatch[slot] = null;
+  nextMatch.winner = null;
+  clearDownstream(bracket, roundIdx+1, nextMatchIdx);
+}
+
+function setWinner(t, roundIdx, matchIdx, slot){
+  const m = t.bracket.rounds[roundIdx][matchIdx];
+  if(!m || !m.p1 || !m.p2) return; // can only pick a winner in a real (non-bye) match
+  clearDownstream(t.bracket, roundIdx, matchIdx);
+  m.winner = slot;
+  advanceWinner(t.bracket, roundIdx, matchIdx);
+  renderBracket(t);
+}
+
+function bracketRoundName(matchCount){
+  if(matchCount === 1) return 'Final';
+  if(matchCount === 2) return 'Semifinals';
+  if(matchCount === 4) return 'Quarterfinals';
+  return `Round of ${matchCount * 2}`;
+}
+
+function renderBracket(t){
+  const roundsWrap = document.getElementById('bracketRounds');
+  const champWrap = document.getElementById('bracketChamp');
+  const emptyNote = document.getElementById('bracketEmpty');
+  const randBtn = document.getElementById('randomizeBracketBtn');
+  if(randBtn) randBtn.textContent = t.bracket ? '🎲 Re-randomize bracket' : '🎲 Randomize bracket';
+
+  if(!t.bracket){
+    roundsWrap.innerHTML = '';
+    champWrap.innerHTML = '';
+    emptyNote.style.display = 'block';
+    return;
+  }
+  emptyNote.style.display = 'none';
+
+  roundsWrap.innerHTML = t.bracket.rounds.map((round, rIdx) => `
+    <div class="bracket-round">
+      <div class="bracket-round-title">${bracketRoundName(round.length)}</div>
+      ${round.map((m, mIdx) => `
+        <div class="bracket-match">
+          ${['p1','p2'].map(slot => {
+            const p = m[slot];
+            const isWinner = m.winner === slot;
+            const clickable = editMode && m.p1 && m.p2;
+            const label = p ? p.name : (rIdx === 0 ? 'BYE' : 'TBD');
+            return `<div class="bracket-slot ${isWinner ? 'winner' : ''} ${!p ? 'bye' : ''} ${clickable ? 'clickable' : ''}" ${clickable ? `data-set-winner="${rIdx}:${mIdx}:${slot}"` : ''}>
+              <span>${label}</span>
+              ${isWinner ? '<span>🏆</span>' : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+
+  const numRounds = t.bracket.rounds.length;
+  const finalMatch = t.bracket.rounds[numRounds-1][0];
+  if(finalMatch && finalMatch.winner){
+    const champ = finalMatch.winner === 'p1' ? finalMatch.p1 : finalMatch.p2;
+    champWrap.innerHTML = `<div class="bracket-champ">🏆 Champion: ${champ.name}</div>`;
+  } else {
+    champWrap.innerHTML = '';
+  }
+}
+
+function openBracketModal(tournamentId){
+  const t = state.tournaments.find(x => x.id === tournamentId);
+  if(!t) return;
+  bracketContext = tournamentId;
+  document.getElementById('bracketModalTitle').textContent = `Bracket — ${t.name}`;
+  renderBracket(t);
+  openModal('bracketModalBackdrop');
+}
+document.getElementById('randomizeBracketBtn').addEventListener('click', () => {
+  const t = state.tournaments.find(x => x.id === bracketContext);
+  if(!t) return;
+  generateBracket(t);
+});
+document.getElementById('bracketRounds').addEventListener('click', e => {
+  const el = e.target.closest('[data-set-winner]');
+  if(!el) return;
+  const [rIdx, mIdx, slot] = el.dataset.setWinner.split(':');
+  const t = state.tournaments.find(x => x.id === bracketContext);
+  if(!t) return;
+  setWinner(t, Number(rIdx), Number(mIdx), slot);
+});
+
+/* ---------- Shared add/edit leaderboard entry modal (overall + per-tournament) ---------- */
+function buildPlayerDirectory(){
+  // Gathers every registered player (across every tournament) so admins can "claim" an
+  // existing user's profile photo instead of typing a name with no picture.
+  const dir = {};
+  state.tournaments.forEach(t => {
+    (t.registrations || []).forEach(r => {
+      if(r.username) dir[r.username] = { photo: r.photo || '', realName: r.realName || '' };
+    });
+  });
+  return dir;
+}
+function setLbEntryAvatarPreview(src){
+  const wrap = document.getElementById('lbEntryAvatarPreview');
+  if(src){ wrap.innerHTML = `<img src="${src}" alt="player preview">`; wrap.classList.add('show'); }
+  else { wrap.innerHTML = ''; wrap.classList.remove('show'); }
+}
+function openLbEntryModal(scope, tournamentId, entry){
+  lbEditCtx = { scope, tournamentId, entryId: entry?.id || null };
+  document.getElementById('lbEntryModalTitle').textContent = entry ? 'Edit entry' : 'Add entry';
+  document.getElementById('lbEntryId').value = entry?.id || '';
+  document.getElementById('lbEntryPlayer').value = entry?.player || '';
+  document.getElementById('lbEntryPhoto').value = entry?.photo || '';
+  document.getElementById('lbEntryScore').value = entry?.score ?? '';
+  document.getElementById('lbEntryGameField').style.display = scope === 'overall' ? 'block' : 'none';
+  document.getElementById('lbEntryGame').value = entry?.game || '';
+  document.getElementById('lbEntryGame').required = scope === 'overall';
+  const dir = buildPlayerDirectory();
+  document.getElementById('lbPlayerList').innerHTML = Object.keys(dir).map(u => `<option value="${u}">`).join('');
+  setLbEntryAvatarPreview(entry?.photo || '');
+  openModal('lbEntryModalBackdrop');
+}
+document.getElementById('lbEntryPlayer').addEventListener('input', e => {
+  const dir = buildPlayerDirectory();
+  const match = dir[e.target.value.trim()];
+  if(match){
+    document.getElementById('lbEntryPhoto').value = match.photo;
+    setLbEntryAvatarPreview(match.photo);
+  } else {
+    document.getElementById('lbEntryPhoto').value = '';
+    setLbEntryAvatarPreview('');
+  }
+});
+document.getElementById('lbEntryForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const id = document.getElementById('lbEntryId').value || 'lb' + Date.now();
+  const player = document.getElementById('lbEntryPlayer').value.trim();
+  const photo = document.getElementById('lbEntryPhoto').value;
+  const score = Number(document.getElementById('lbEntryScore').value);
+  if(lbEditCtx.scope === 'overall'){
+    const game = document.getElementById('lbEntryGame').value.trim();
+    const idx = state.leaderboard.findIndex(x => x.id === id);
+    const data = { id, player, game, score, photo };
+    if(idx > -1) state.leaderboard[idx] = data; else state.leaderboard.push(data);
+    renderLeaderboard();
+  } else {
+    const t = state.tournaments.find(x => x.id === lbEditCtx.tournamentId);
+    if(!t) return;
+    t.leaderboard = t.leaderboard || [];
+    const idx = t.leaderboard.findIndex(x => x.id === id);
+    const data = { id, player, score, photo };
+    if(idx > -1) t.leaderboard[idx] = data; else t.leaderboard.push(data);
+    renderTournamentLbTable(t);
+    renderTournaments();
+  }
+  closeModal('lbEntryModalBackdrop');
+  toast('Leaderboard updated');
+});
+
+/* ===================================================================
+   PACKAGES
+=================================================================== */
+function renderPackages(){
+  const grid = document.getElementById('packagesGrid');
+  const list = editMode ? state.packages : state.packages.filter(p => !p.hidden);
+  if(!list.length){
+    grid.innerHTML = '<div class="empty-state">No packages available right now.</div>';
+    return;
+  }
+  grid.innerHTML = list.map(p => `
+    <div class="package-card ${p.highlight?'highlight':''}" style="${p.hidden?'opacity:0.55;':''}">
+      ${p.highlight ? '<span class="pill">Most booked</span>' : ''}
+      ${editMode ? `<div class="card-admin-ctrl" style="top:14px;">
+        <button class="icon-btn" data-toggle-pkg="${p.id}" title="${p.hidden?'Unhide':'Hide'}">${p.hidden?'🙈':'👁'}</button>
+        <button class="icon-btn" data-edit-pkg="${p.id}">✎</button>
+        <button class="icon-btn" data-del-pkg="${p.id}">🗑</button>
+      </div>` : ''}
+      <h3>${p.name} ${p.hidden ? '<span class="hidden-tag">Hidden</span>' : ''}</h3>
+      <div class="tagset">${(p.cats||[]).map(c => `<span>${catLabel[c]||c}</span>`).join('')}</div>
+      <div class="package-price">LKR ${p.price}<span>${p.unit}</span></div>
+      <ul>${p.features.map(f => `<li>${f}</li>`).join('')}</ul>
+      ${p.hidden ? '' : `<button class="btn ${p.highlight?'btn-primary':'btn-ghost'}" style="width:100%;justify-content:center;" data-reserve-pkg="${p.id}">Reserve</button>`}
+    </div>
+  `).join('');
+}
+
+document.getElementById('packagesGrid').addEventListener('click', e => {
+  const resBtn = e.target.closest('[data-reserve-pkg]');
+  if(resBtn){ openReserveModal({ packageId: resBtn.dataset.reservePkg }); return; }
+  const toggleId = e.target.closest('[data-toggle-pkg]')?.dataset.togglePkg;
+  if(toggleId){
+    const p = state.packages.find(x => x.id === toggleId);
+    p.hidden = !p.hidden;
+    renderPackages();
+    toast(p.hidden ? 'Package hidden' : 'Package unhidden');
+    return;
+  }
+  const editId = e.target.closest('[data-edit-pkg]')?.dataset.editPkg;
+  if(editId){
+    const p = state.packages.find(x => x.id === editId);
+    document.getElementById('packageModalTitle').textContent = 'Edit package';
+    document.getElementById('packageId').value = p.id;
+    document.getElementById('packageName').value = p.name;
+    document.getElementById('packagePrice').value = p.price;
+    document.getElementById('packageUnit').value = p.unit;
+    document.getElementById('packageFeatures').value = p.features.join('\n');
+    document.getElementById('packageHighlight').checked = p.highlight;
+    document.getElementById('packageDuration').value = p.durationMinutes ?? '';
+    renderPkgCatGrid(p.cats || []);
+    openModal('packageModalBackdrop');
+    return;
+  }
+  const delId = e.target.closest('[data-del-pkg]')?.dataset.delPkg;
+  if(delId){
+    state.packages = state.packages.filter(x => x.id !== delId);
+    renderPackages();
+    toast('Package removed');
+  }
+});
+
+document.getElementById('viewReservationsBtn').addEventListener('click', () => {
+  renderAdminReservations();
+  openModal('reservationsModalBackdrop');
+});
+
+/* ===================================================================
+   RESERVATIONS — book a game + package for a date/time, block double-bookings
+=================================================================== */
+function timeToMinutes(t){
+  const [h,m] = t.split(':').map(Number);
+  return h*60+m;
+}
+
+function fillResGameOptions(){
+  const sel = document.getElementById('resGame');
+  sel.innerHTML = state.games.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+}
+
+function fillResPackageOptions(gameId){
+  const sel = document.getElementById('resPackage');
+  const game = state.games.find(g => g.id === gameId);
+  const visible = state.packages.filter(p => !p.hidden);
+  // Prefer packages whose "who can play" category matches this game's categories, but always show every visible package as a fallback.
+  const matching = game ? visible.filter(p => (p.cats||[]).some(c => game.cats.includes(c))) : [];
+  const list = matching.length ? matching : visible;
+  sel.innerHTML = list.map(p => `<option value="${p.id}">${p.name} — LKR ${p.price}${p.unit}</option>`).join('');
+}
+
+function updateResPriceDisplay(){
+  const pkg = state.packages.find(p => p.id === document.getElementById('resPackage').value);
+  const display = document.getElementById('resPriceDisplay');
+  if(!pkg){ display.textContent = ''; return; }
+  display.innerHTML = `LKR ${pkg.price}<span> ${pkg.unit}</span>`;
+}
+
+function openReserveModal({ gameId, packageId } = {}){
+  fillResGameOptions();
+  const initialGameId = gameId || state.games[0]?.id;
+  document.getElementById('resGame').value = initialGameId;
+  fillResPackageOptions(initialGameId);
+  if(packageId) document.getElementById('resPackage').value = packageId;
+  updateResPriceDisplay();
+  document.getElementById('resDate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('resDate').min = new Date().toISOString().slice(0,10);
+  document.getElementById('resTime').value = '';
+  document.getElementById('resName').value = '';
+  openModal('reserveModalBackdrop');
+}
+
+document.getElementById('resGame').addEventListener('change', e => {
+  fillResPackageOptions(e.target.value);
+  updateResPriceDisplay();
+});
+document.getElementById('resPackage').addEventListener('change', updateResPriceDisplay);
+
+document.getElementById('reserveForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const gameId = document.getElementById('resGame').value;
+  const pkg = state.packages.find(p => p.id === document.getElementById('resPackage').value);
+  const date = document.getElementById('resDate').value;
+  const time = document.getElementById('resTime').value;
+  const name = document.getElementById('resName').value.trim();
+  const game = state.games.find(g => g.id === gameId);
+  if(!game || !pkg || !date || !time || !name) return;
+
+  const newStart = timeToMinutes(time);
+  const newDur = pkg.durationMinutes;
+  const newEnd = newDur ? newStart + newDur : null;
+
+  const conflict = state.reservations.find(r => {
+    if(r.gameId !== gameId || r.date !== date) return false;
+    // A pass with no fixed duration (e.g. weekend pass) always conflicts with anything else on that game/date.
+    if(newDur === null || r.durationMinutes === null) return true;
+    const rStart = timeToMinutes(r.time);
+    const rEnd = rStart + r.durationMinutes;
+    return newStart < rEnd && rStart < newEnd;
+  });
+
+  if(conflict){
+    toast(`${game.name} is already reserved at ${conflict.time} on ${conflict.date} — pick another time`);
+    return;
+  }
+
+  state.reservations.push({
+    id: 'r' + Date.now(),
+    gameId, gameName: game.name,
+    packageId: pkg.id, packageName: pkg.name,
+    price: pkg.price, unit: pkg.unit,
+    durationMinutes: newDur,
+    date, time, name
+  });
+
+  closeModal('reserveModalBackdrop');
+  renderAdminReservations();
+  toast(`Reserved! ${game.name} · ${pkg.name} · ${date} ${time} · LKR ${pkg.price}${pkg.unit}`);
+});
+
+/* ===================================================================
+   MODAL HELPERS
+=================================================================== */
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('[data-close]').forEach(btn => {
+  btn.addEventListener('click', () => closeModal(btn.dataset.close));
+});
+document.querySelectorAll('.modal-backdrop').forEach(bd => {
+  bd.addEventListener('click', e => { if(e.target === bd) bd.classList.remove('show'); });
+});
+
+/* ---------- Games: add/edit form wiring ---------- */
+document.getElementById('addGameBtn').addEventListener('click', () => {
+  document.getElementById('gameModalTitle').textContent = 'Add game';
+  document.getElementById('gameForm').reset();
+  document.getElementById('gameId').value = '';
+  document.getElementById('gameBase').value = '#16283a';
+  document.getElementById('gameAccent').value = '#ffb627';
+  renderGameCatGrid();
+  galleryDraft = [];
+  videoDraft = '';
+  setCoverPreview('');
+  renderGalleryPreview();
+  setVideoPreview('');
+  openModal('gameModalBackdrop');
+});
+
+document.getElementById('gameForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const id = document.getElementById('gameId').value || 'g' + Date.now();
+  const cats = [...document.querySelectorAll('.gameCat:checked')].map(cb => cb.value);
+  const data = {
+    id,
+    name: document.getElementById('gameName').value,
+    img: document.getElementById('gameImg').value,
+    desc: document.getElementById('gameDesc').value,
+    cats: cats.length ? cats : ['pc'],
+    price: Number(document.getElementById('gamePrice').value),
+    slots: document.getElementById('gameSlots').value || 'open',
+    base: document.getElementById('gameBase').value,
+    accent: document.getElementById('gameAccent').value,
+    gallery: galleryDraft.slice(),
+    video: videoDraft
+  };
+  const existingIdx = state.games.findIndex(x => x.id === id);
+  if(existingIdx > -1) state.games[existingIdx] = data;
+  else state.games.push(data);
+
+  closeModal('gameModalBackdrop');
+  renderGamesGrid(); renderHero(); renderShelf();
+  toast('Game saved');
+});
+
+/* ---------- Packages: add/edit form wiring ---------- */
+document.getElementById('addPackageBtn').addEventListener('click', () => {
+  document.getElementById('packageModalTitle').textContent = 'Add package';
+  document.getElementById('packageForm').reset();
+  document.getElementById('packageId').value = '';
+  renderPkgCatGrid();
+  openModal('packageModalBackdrop');
+});
+
+document.getElementById('packageForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const id = document.getElementById('packageId').value || 'p' + Date.now();
+  const existingIdx = state.packages.findIndex(x => x.id === id);
+  const pkgCats = [...document.querySelectorAll('.pkgCat:checked')].map(cb => cb.value);
+  const durationVal = document.getElementById('packageDuration').value;
+  const data = {
+    id,
+    name: document.getElementById('packageName').value,
+    price: Number(document.getElementById('packagePrice').value),
+    unit: document.getElementById('packageUnit').value,
+    features: document.getElementById('packageFeatures').value.split('\n').map(f => f.trim()).filter(Boolean),
+    highlight: document.getElementById('packageHighlight').checked,
+    hidden: existingIdx > -1 ? state.packages[existingIdx].hidden : false,
+    cats: pkgCats.length ? pkgCats : ['solo'],
+    durationMinutes: durationVal === '' ? null : Number(durationVal)
+  };
+  if(existingIdx > -1) state.packages[existingIdx] = data;
+  else state.packages.push(data);
+
+  closeModal('packageModalBackdrop');
+  renderPackages();
+  toast('Package saved');
+});
+
+/* ---------- Reservations (viewed via the Packages tab in edit mode) ---------- */
+function renderAdminReservations(){
+  const wrap = document.getElementById('adminReservationsList');
+  if(!wrap) return;
+  if(!state.reservations.length){
+    wrap.innerHTML = '<div class="empty-state">No reservations yet.</div>';
+    return;
+  }
+  const sorted = [...state.reservations].sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time));
+  wrap.innerHTML = sorted.map(r => `
+    <div class="admin-list-row">
+      <div class="info">
+        <h5>${r.gameName} · ${r.packageName}</h5>
+        <div class="sub">${r.date} ${r.time} · LKR ${r.price}${r.unit} · ${r.name}</div>
+      </div>
+      <div class="actions">
+        <button class="icon-btn" data-del-res="${r.id}">🗑</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('adminReservationsList').addEventListener('click', e => {
+  const delId = e.target.closest('[data-del-res]')?.dataset.delRes;
+  if(!delId) return;
+  state.reservations = state.reservations.filter(r => r.id !== delId);
+  renderAdminReservations();
+  toast('Reservation removed');
+});
+
+/* ===================================================================
+   HEADER HEIGHT SYNC — keeps page content from hiding under the
+   sticky topbar if it wraps to a taller/shorter height than expected
+   (different screen widths, zoom levels, font rendering, etc.)
+=================================================================== */
+function syncHeaderHeight(){
+  const bar = document.querySelector('.topbar');
+  if(!bar) return;
+  document.documentElement.style.setProperty('--header-h', bar.offsetHeight + 'px');
+}
+window.addEventListener('load', syncHeaderHeight);
+window.addEventListener('resize', syncHeaderHeight);
+new ResizeObserver(syncHeaderHeight).observe(document.querySelector('.topbar'));
+syncHeaderHeight();
+
+/* ===================================================================
+   BROKEN IMAGE FALLBACK — if a cover/photo path doesn't resolve
+   (missing file, bad URL, etc.) show a clean placeholder instead of
+   the browser's ugly broken-image icon.
+=================================================================== */
+const IMG_PLACEHOLDER = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+    <rect width="400" height="400" fill="#1b1830"/>
+    <text x="50%" y="50%" font-family="sans-serif" font-size="64" fill="#3a3555" text-anchor="middle" dominant-baseline="middle">🎮</text>
+  </svg>
+`);
+document.addEventListener('error', e => {
+  const el = e.target;
+  if(el.tagName === 'IMG' && !el.dataset.fallbackApplied && el.src !== IMG_PLACEHOLDER){
+    el.dataset.fallbackApplied = 'true';
+    el.src = IMG_PLACEHOLDER;
+  }
+}, true);
+
+/* ===================================================================
+   MOUSE DRAG-TO-SCROLL — on PC there's no touch swipe, so wire up
+   click-and-drag and wheel scrolling for every horizontally
+   scrolling row (hero carousel, station shelf, galleries, tables...).
+=================================================================== */
+function enableDragScroll(el){
+  let isDown = false, startX = 0, startScroll = 0, moved = false;
+  el.addEventListener('mousedown', e => {
+    isDown = true;
+    moved = false;
+    startX = e.pageX;
+    startScroll = el.scrollLeft;
+    el.classList.add('dragging');
+  });
+  window.addEventListener('mouseup', () => {
+    isDown = false;
+    el.classList.remove('dragging');
+  });
+  el.addEventListener('mouseleave', () => {
+    isDown = false;
+    el.classList.remove('dragging');
+  });
+  el.addEventListener('mousemove', e => {
+    if(!isDown) return;
+    e.preventDefault();
+    const walk = e.pageX - startX;
+    if(Math.abs(walk) > 5) moved = true;
+    el.scrollLeft = startScroll - walk;
+  });
+  // Stop a drag from also registering as a click on whatever's underneath (e.g. a card)
+  el.addEventListener('click', e => {
+    if(moved){ e.preventDefault(); e.stopPropagation(); moved = false; }
+  }, true);
+  // Let a normal mouse wheel scroll the row sideways too
+  el.addEventListener('wheel', e => {
+    if(Math.abs(e.deltaY) > Math.abs(e.deltaX) && el.scrollWidth > el.clientWidth){
+      el.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+  }, { passive:false });
+}
+function initDragScrollAreas(){
+  document.querySelectorAll('.hscroll').forEach(el => {
+    if(el.dataset.dragScrollBound) return;
+    el.dataset.dragScrollBound = 'true';
+    enableDragScroll(el);
+  });
+}
+
+/* ===================================================================
+   INIT
+=================================================================== */
+renderHero();
+renderShelf();
+renderFilters();
+renderGamesGrid();
+renderTournaments();
+renderLeaderboard();
+renderPackages();
+initDragScrollAreas();
+</script>
+</body>
+</html>
