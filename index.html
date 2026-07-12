@@ -2841,6 +2841,23 @@ function timeToMinutes(t){
   return h*60+m;
 }
 
+// Turns 900 (minutes since midnight) into "3:00 PM" for reservation messages.
+function minutesToClock(mins){
+  const h24 = Math.floor(mins / 60);
+  const m = mins % 60;
+  const period = h24 < 12 ? 'AM' : 'PM';
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h12}:${String(m).padStart(2,'0')} ${period}`;
+}
+
+// Describes a reservation's time as a range ("3:00 PM–4:00 PM") when it has a
+// fixed duration, or just its start time for open-ended passes.
+function describeBookedTime(res){
+  const start = timeToMinutes(res.time);
+  if(res.durationMinutes == null) return `${minutesToClock(start)} (open-ended)`;
+  return `${minutesToClock(start)}\u2013${minutesToClock(start + res.durationMinutes)}`;
+}
+
 function fillResGameOptions(){
   const sel = document.getElementById('resGame');
   sel.innerHTML = state.games.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
@@ -2950,7 +2967,7 @@ document.getElementById('reserveForm').addEventListener('submit', e => {
     return newStart < rEnd && rStart < newEnd;
   });
   if(gameConflict){
-    toast(`${game.name} is already reserved at ${gameConflict.time} on ${gameConflict.date} — pick another time`);
+    toast(`${game.name} is already reserved ${describeBookedTime(gameConflict)} on ${gameConflict.date} — pick another time`);
     return;
   }
 
@@ -2964,7 +2981,7 @@ document.getElementById('reserveForm').addEventListener('submit', e => {
       return newStart < rEnd && rStart < newEnd;
     });
     if(stationConflict){
-      toast(`${station.label} is already booked at ${stationConflict.time} on ${stationConflict.date} — pick another station or time`);
+      toast(`${station.label} is already booked ${describeBookedTime(stationConflict)} on ${stationConflict.date} — pick another station or time`);
       return;
     }
   }
