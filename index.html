@@ -1145,6 +1145,10 @@ function toast(msg){
   t.classList.add('show');
   clearTimeout(t._timer);
   t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+  // Almost every state-changing admin action shows a toast right after
+  // it happens, so this is the most reliable place to trigger a save —
+  // no need to wait on a timer that might not fire before the tab closes.
+  if(typeof saveStateNow === 'function') saveStateNow();
 }
 
 /* ===================================================================
@@ -2346,8 +2350,6 @@ function renderEverything(){
   renderTournaments();
   renderLeaderboard();
   renderPackages();
-  renderSiteLogo();
-  renderSiteName();
   initDragScrollAreas();
 }
 
