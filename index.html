@@ -255,6 +255,18 @@
   .file-drop span{font-size:12.5px;color:var(--ink-dim);}
   .file-drop input{display:none;}
   .hint-text{font-size:11px;color:var(--ink-dim);margin-top:6px;}
+  .search-box{position:relative;margin-bottom:14px;max-width:420px;}
+  .search-box input{
+    width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:10px;
+    padding:11px 38px 11px 36px;color:var(--ink);font-size:14px;
+  }
+  .search-box input:focus{outline:none;border-color:var(--amber);}
+  .search-box .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--ink-dim);pointer-events:none;}
+  .search-box .search-clear{
+    position:absolute;right:7px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.08);border:none;
+    color:var(--ink-dim);width:22px;height:22px;border-radius:50%;font-size:13px;cursor:pointer;display:none;align-items:center;justify-content:center;
+  }
+  .search-box .search-clear.show{display:flex;}
   .cover-preview{width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;margin-top:10px;border:1px solid var(--line);display:none;}
   .cover-preview.show{display:block;}
   .cover-preview img{width:100%;height:100%;object-fit:cover;}
@@ -589,6 +601,11 @@
           <button class="btn btn-primary btn-sm" id="addGameBtn">+ Add game</button>
         </div>
       </div>
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="gameSearchInput" placeholder="Search games…" autocomplete="off">
+        <button type="button" class="search-clear" id="gameSearchClear">×</button>
+      </div>
       <div class="chip-row" id="filterChips"></div>
       <div class="subchip-row hidden" id="subChips"></div>
       <div class="games-grid" id="gamesGrid"></div>
@@ -638,6 +655,11 @@
           <button class="btn btn-ghost btn-sm" id="viewStationsBtn">🖥️ Stations</button>
           <button class="btn btn-primary btn-sm" id="addPackageBtn">+ Add package</button>
         </div>
+      </div>
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="pkgSearchInput" placeholder="Search packages…" autocomplete="off">
+        <button type="button" class="search-clear" id="pkgSearchClear">×</button>
       </div>
       <div class="packages-grid" id="packagesGrid"></div>
     </div>
@@ -859,6 +881,7 @@
     <div class="login-steps-dots">
       <span class="login-dot active" id="loginDot1"></span>
       <span class="login-dot" id="loginDot2"></span>
+      <span class="login-dot" id="loginDot3"></span>
     </div>
 
     <div class="reg-step show" id="loginStepEmail">
@@ -876,6 +899,24 @@
         <button type="button" class="btn btn-primary" id="loginVerifyBtn" style="flex:1;justify-content:center;">Verify &amp; log in</button>
         <button type="button" class="btn btn-ghost" id="loginResendBtn">Resend</button>
       </div>
+    </div>
+
+    <div class="reg-step" id="loginStepProfile">
+      <div class="login-code-hint">✓ Email verified — pick a profile</div>
+      <div class="field" style="text-align:left;">
+        <label>Username</label>
+        <input type="text" id="loginUsername" placeholder="@yourtag" autocomplete="off">
+        <div class="hint-text" id="loginUsernameHint" style="min-height:14px;"></div>
+      </div>
+      <div class="field" style="text-align:left;">
+        <label>Profile picture</label>
+        <label class="file-drop">
+          <span>📷 Upload a profile photo</span>
+          <input type="file" id="loginPhotoFile" accept="image/*">
+        </label>
+        <div class="avatar-preview" id="loginAvatarPreview"></div>
+      </div>
+      <button type="button" class="btn btn-primary" id="loginSaveProfileBtn" style="width:100%;justify-content:center;">Save profile &amp; log in</button>
     </div>
   </div>
 </div>
@@ -907,7 +948,7 @@
       <span class="verified-tag">✓ Email verified</span>
       <form id="regDetailsForm">
         <div class="field"><label>Real name</label><input type="text" id="regRealName" required></div>
-        <div class="field"><label>Username</label><input type="text" id="regUsername" placeholder="@yourtag" required></div>
+        <div class="field"><label>Username</label><input type="text" id="regUsername" placeholder="@yourtag" required><div class="hint-text" id="regUsernameHint" style="min-height:14px;"></div></div>
         <div class="field"><label>Phone number</label><input type="text" id="regPhone" placeholder="07X XXX XXXX" required></div>
         <div class="field">
           <label>Profile picture</label>
@@ -1109,7 +1150,10 @@ const state = {
     { id:'lb4', player:'DriftKing', game:'Forza Horizon 5', score:1755, photo:'' },
     { id:'lb5', player:'PaddockPilot', game:'EA Sports F1 22', score:1690, photo:'' }
   ],
-  whatsappNumber: ''
+  whatsappNumber: '',
+  // One profile per logged-in email: { email, username, photo, createdAt }.
+  // Usernames must be unique (case-insensitive) across all customers.
+  customers: []
 };
 
 const ADMIN_PASS = 'warencarpadinna69';
@@ -1465,6 +1509,7 @@ function renderShelf(){
 =================================================================== */
 let activeFilter = 'all';
 let activeSub = null;
+let gameSearchQuery = '';
 
 function renderFilters(){
   const chips = document.getElementById('filterChips');
@@ -1495,9 +1540,18 @@ function renderGamesGrid(){
     list = list.filter(g => g.cats.includes(activeFilter));
   }
 
+  const q = gameSearchQuery.trim().toLowerCase();
+  if(q){
+    list = list.filter(g =>
+      g.name.toLowerCase().includes(q) ||
+      (g.desc||'').toLowerCase().includes(q) ||
+      g.cats.some(c => (catLabel[c]||c).toLowerCase().includes(q))
+    );
+  }
+
   const grid = document.getElementById('gamesGrid');
   if(!list.length){
-    grid.innerHTML = '<div class="empty-state">No games in this category yet.</div>';
+    grid.innerHTML = `<div class="empty-state">${q ? `No games match "${gameSearchQuery.trim()}".` : 'No games in this category yet.'}</div>`;
     return;
   }
   grid.innerHTML = list.map(g => `
@@ -1534,6 +1588,18 @@ document.getElementById('subChips').addEventListener('click', e => {
   activeSub = activeSub === btn.dataset.sub ? null : btn.dataset.sub;
   renderFilters();
   renderGamesGrid();
+});
+document.getElementById('gameSearchInput').addEventListener('input', e => {
+  gameSearchQuery = e.target.value;
+  document.getElementById('gameSearchClear').classList.toggle('show', !!gameSearchQuery.trim());
+  renderGamesGrid();
+});
+document.getElementById('gameSearchClear').addEventListener('click', () => {
+  gameSearchQuery = '';
+  document.getElementById('gameSearchInput').value = '';
+  document.getElementById('gameSearchClear').classList.remove('show');
+  renderGamesGrid();
+  document.getElementById('gameSearchInput').focus();
 });
 
 document.getElementById('gamesGrid').addEventListener('click', e => {
@@ -1810,6 +1876,34 @@ syncLoginButton();
 function setLoginStepDot(step){
   document.getElementById('loginDot1').classList.toggle('active', step === 1);
   document.getElementById('loginDot2').classList.toggle('active', step === 2);
+  document.getElementById('loginDot3').classList.toggle('active', step === 3);
+}
+
+/* ---------- Customer profiles (username + photo, created at login) ----------
+   One profile per email, and usernames must be unique (case-insensitive)
+   across every customer — checked live as they type and again on save. */
+function getCustomerProfile(email){
+  if(!email) return null;
+  return state.customers.find(c => c.email.toLowerCase() === email.toLowerCase()) || null;
+}
+function isUsernameTaken(username, ownerEmail){
+  const uname = (username || '').trim().toLowerCase();
+  if(!uname) return false;
+  return state.customers.some(c =>
+    c.username.trim().toLowerCase() === uname &&
+    c.email.toLowerCase() !== (ownerEmail || '').toLowerCase()
+  );
+}
+function upsertCustomerProfile(profile){
+  const idx = state.customers.findIndex(c => c.email.toLowerCase() === profile.email.toLowerCase());
+  if(idx > -1) state.customers[idx] = { ...state.customers[idx], ...profile };
+  else state.customers.push(profile);
+  scheduleSave();
+}
+function setLoginAvatarPreview(src){
+  const wrap = document.getElementById('loginAvatarPreview');
+  if(src){ wrap.innerHTML = `<img src="${src}" alt="profile preview">`; wrap.classList.add('show'); }
+  else { wrap.innerHTML = ''; wrap.classList.remove('show'); }
 }
 
 document.getElementById('customerLoginBtn').addEventListener('click', () => {
@@ -1825,6 +1919,7 @@ document.getElementById('customerLoginBtn').addEventListener('click', () => {
 });
 
 let loginPendingEmail = null;
+let loginProfilePhotoDraft = '';
 
 document.getElementById('loginSendCodeBtn').addEventListener('click', async () => {
   const email = document.getElementById('loginEmail').value.trim();
@@ -1892,9 +1987,23 @@ document.getElementById('loginVerifyBtn').addEventListener('click', async () => 
     });
     const data = await res.json();
     if(data.verified){
-      setLoggedInEmail(loginPendingEmail);
-      toast('Logged in ✓');
-      closeModal('loginModalBackdrop');
+      const existing = getCustomerProfile(loginPendingEmail);
+      if(existing){
+        // Returning customer — profile already has a username + photo, no need to ask again.
+        setLoggedInEmail(loginPendingEmail);
+        toast(`Welcome back, @${existing.username} ✓`);
+        closeModal('loginModalBackdrop');
+      } else {
+        // First time logging in on any device — set up a profile now so
+        // every future tournament sign-up can reuse it automatically.
+        loginProfilePhotoDraft = '';
+        document.getElementById('loginUsername').value = '';
+        document.getElementById('loginUsernameHint').textContent = '';
+        document.getElementById('loginUsernameHint').style.color = '';
+        setLoginAvatarPreview('');
+        setLoginStepDot(3);
+        showRegStep('loginStepProfile');
+      }
     } else {
       toast('Incorrect or expired code, try again');
     }
@@ -1904,6 +2013,44 @@ document.getElementById('loginVerifyBtn').addEventListener('click', async () => 
     btn.disabled = false;
     btn.textContent = 'Verify & log in';
   }
+});
+
+document.getElementById('loginUsername').addEventListener('input', () => {
+  const hint = document.getElementById('loginUsernameHint');
+  const val = document.getElementById('loginUsername').value.trim();
+  if(!val){ hint.textContent = ''; return; }
+  if(isUsernameTaken(val, loginPendingEmail)){
+    hint.textContent = 'That username is already taken — try another';
+    hint.style.color = 'var(--red, #e0313f)';
+  } else {
+    hint.textContent = 'Username is available ✓';
+    hint.style.color = 'var(--cyan, #5fe1d8)';
+  }
+});
+
+document.getElementById('loginPhotoFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  loginProfilePhotoDraft = await fileToDataURL(file);
+  setLoginAvatarPreview(loginProfilePhotoDraft);
+});
+
+document.getElementById('loginSaveProfileBtn').addEventListener('click', () => {
+  const username = document.getElementById('loginUsername').value.trim();
+  if(!username){ toast('Pick a username to continue'); return; }
+  if(isUsernameTaken(username, loginPendingEmail)){
+    toast('That username is taken — pick another one');
+    return;
+  }
+  upsertCustomerProfile({
+    email: loginPendingEmail,
+    username,
+    photo: loginProfilePhotoDraft,
+    createdAt: new Date().toISOString()
+  });
+  setLoggedInEmail(loginPendingEmail);
+  toast(`Profile created — welcome, @${username} ✓`);
+  closeModal('loginModalBackdrop');
 });
 
 function openRegisterModal(tournamentId){
@@ -1924,6 +2071,14 @@ function openRegisterModal(tournamentId){
   if(loggedInEmail){
     regVerifiedEmail = loggedInEmail;
     showRegStep('regStepDetails');
+    // Pull in the username + photo they already set up at login, so they
+    // don't have to retype/re-upload it for every single tournament.
+    const profile = getCustomerProfile(loggedInEmail);
+    if(profile){
+      document.getElementById('regUsername').value = profile.username || '';
+      regPhotoDraft = profile.photo || '';
+      setAvatarPreview(regPhotoDraft);
+    }
   } else {
     regVerifiedEmail = null;
     showRegStep('regStepEmail');
@@ -2009,6 +2164,18 @@ document.getElementById('regVerifyBtn').addEventListener('click', async () => {
     btn.textContent = 'Verify';
   }
 });
+document.getElementById('regUsername').addEventListener('input', () => {
+  const hint = document.getElementById('regUsernameHint');
+  const val = document.getElementById('regUsername').value.trim();
+  if(!val){ hint.textContent = ''; return; }
+  if(isUsernameTaken(val, regVerifiedEmail)){
+    hint.textContent = 'That username is already taken — try another';
+    hint.style.color = 'var(--red, #e0313f)';
+  } else {
+    hint.textContent = 'Username is available ✓';
+    hint.style.color = 'var(--cyan, #5fe1d8)';
+  }
+});
 document.getElementById('regPhotoFile').addEventListener('change', async e => {
   const file = e.target.files[0];
   if(!file) return;
@@ -2019,11 +2186,24 @@ document.getElementById('regDetailsForm').addEventListener('submit', e => {
   e.preventDefault();
   const t = state.tournaments.find(x => x.id === regContext.tournamentId);
   if(!t || !regVerifiedEmail) return;
+  const username = document.getElementById('regUsername').value.trim();
+  if(isUsernameTaken(username, regVerifiedEmail)){
+    toast('That username is already taken by another player — pick another one');
+    return;
+  }
+  // Keep the account-level profile (used for login + future sign-ups) in
+  // sync with whatever username/photo they confirm here.
+  upsertCustomerProfile({
+    email: regVerifiedEmail,
+    username,
+    photo: regPhotoDraft,
+    createdAt: (getCustomerProfile(regVerifiedEmail) || {}).createdAt || new Date().toISOString()
+  });
   const entry = {
     id: 'reg' + Date.now(),
     email: regVerifiedEmail,
     realName: document.getElementById('regRealName').value.trim(),
-    username: document.getElementById('regUsername').value.trim(),
+    username,
     phone: document.getElementById('regPhone').value.trim(),
     photo: regPhotoDraft,
     registeredAt: new Date().toISOString(),
@@ -2387,11 +2567,21 @@ document.getElementById('lbEntryForm').addEventListener('submit', e => {
 /* ===================================================================
    PACKAGES
 =================================================================== */
+let pkgSearchQuery = '';
 function renderPackages(){
   const grid = document.getElementById('packagesGrid');
-  const list = editMode ? state.packages : state.packages.filter(p => !p.hidden);
+  let list = editMode ? state.packages : state.packages.filter(p => !p.hidden);
+  const q = pkgSearchQuery.trim().toLowerCase();
+  if(q){
+    list = list.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      p.unit.toLowerCase().includes(q) ||
+      p.features.some(f => f.toLowerCase().includes(q)) ||
+      (p.cats||[]).some(c => (catLabel[c]||c).toLowerCase().includes(q))
+    );
+  }
   if(!list.length){
-    grid.innerHTML = '<div class="empty-state">No packages available right now.</div>';
+    grid.innerHTML = `<div class="empty-state">${q ? `No packages match "${pkgSearchQuery.trim()}".` : 'No packages available right now.'}</div>`;
     return;
   }
   grid.innerHTML = list.map(p => `
@@ -2443,6 +2633,19 @@ document.getElementById('packagesGrid').addEventListener('click', e => {
     renderPackages();
     toast('Package removed');
   }
+});
+
+document.getElementById('pkgSearchInput').addEventListener('input', e => {
+  pkgSearchQuery = e.target.value;
+  document.getElementById('pkgSearchClear').classList.toggle('show', !!pkgSearchQuery.trim());
+  renderPackages();
+});
+document.getElementById('pkgSearchClear').addEventListener('click', () => {
+  pkgSearchQuery = '';
+  document.getElementById('pkgSearchInput').value = '';
+  document.getElementById('pkgSearchClear').classList.remove('show');
+  renderPackages();
+  document.getElementById('pkgSearchInput').focus();
 });
 
 document.getElementById('viewReservationsBtn').addEventListener('click', () => {
