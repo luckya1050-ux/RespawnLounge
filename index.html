@@ -365,8 +365,9 @@
   .row-between{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;}
   .toast{
     position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);
-    background:var(--ink);color:#14121f;padding:12px 20px;border-radius:999px;font-size:13px;font-weight:600;
-    opacity:0;pointer-events:none;transition:all .3s ease;z-index:300;white-space:nowrap;
+    background:var(--ink);color:#14121f;padding:12px 20px;border-radius:16px;font-size:13px;font-weight:600;
+    opacity:0;pointer-events:none;transition:all .3s ease;z-index:300;
+    white-space:normal;word-wrap:break-word;max-width:min(90vw,380px);width:max-content;text-align:center;line-height:1.4;
   }
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
@@ -1240,7 +1241,10 @@ function toast(msg){
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+  // Longer messages (like booking-conflict warnings) get more time on
+  // screen so they can actually be read before disappearing.
+  const displayMs = Math.min(6000, Math.max(2200, msg.length * 60));
+  t._timer = setTimeout(() => t.classList.remove('show'), displayMs);
   // Almost every state-changing admin action shows a toast right after
   // it happens, so this is the most reliable place to trigger a save —
   // no need to wait on a timer that might not fire before the tab closes.
