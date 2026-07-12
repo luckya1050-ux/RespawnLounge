@@ -1148,6 +1148,9 @@ function toast(msg){
   // Almost every state-changing admin action shows a toast right after
   // it happens, so this is the most reliable place to trigger a save —
   // no need to wait on a timer that might not fire before the tab closes.
+  if(typeof initialLoadComplete !== 'undefined' && !initialLoadComplete){
+    editedBeforeLoadFinished = true;
+  }
   if(typeof saveStateNow === 'function') saveStateNow();
 }
 
@@ -2299,6 +2302,8 @@ function initDragScrollAreas(){
 let lastSavedSnapshot = null;
 let saveInFlight = false;
 let savePending = false;
+let initialLoadComplete = false;
+let editedBeforeLoadFinished = false;
 
 async function saveStateNow(){
   const snap = JSON.stringify(state);
@@ -2361,7 +2366,13 @@ async function loadStateThenRender(){
     const res = await fetch('/api/state');
     if(res.ok){
       const saved = await res.json();
-      if(saved && typeof saved === 'object' && Object.keys(saved).length){
+      // If the person already made and saved an edit while this
+      // request was still in flight (e.g. slow mobile connection),
+      // their fresh edit is newer than what we just fetched — don't
+      // clobber it with the older server copy.
+      if(editedBeforeLoadFinished){
+        console.log('Skipped applying loaded state — a newer local edit was already made.');
+      } else if(saved && typeof saved === 'object' && Object.keys(saved).length){
         Object.keys(saved).forEach(key => { state[key] = saved[key]; });
         renderEverything();
       }
@@ -2369,7 +2380,10 @@ async function loadStateThenRender(){
   } catch(err){
     console.error('Load failed, using built-in defaults', err);
   } finally {
-    lastSavedSnapshot = JSON.stringify(state);
+    if(!editedBeforeLoadFinished){
+      lastSavedSnapshot = JSON.stringify(state);
+    }
+    initialLoadComplete = true;
   }
 }
 
