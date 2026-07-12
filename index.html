@@ -2287,16 +2287,94 @@ function initDragScrollAreas(){
 }
 
 /* ===================================================================
+   PERSISTENCE — saves/loads the whole `state` object to Cloudflare KV
+   via a tiny Worker API, so admin edits (games, images, packages,
+   reservations, tournaments, leaderboard) are visible to every
+   visitor, not just the browser that made them.
+=================================================================== */
+let lastSavedSnapshot = null;
+let saveInFlight = false;
+let savePending = false;
+
+async function saveStateNow(){
+  const snap = JSON.stringify(state);
+  if(snap === lastSavedSnapshot) return;
+  if(saveInFlight){ savePending = true; return; }
+  saveInFlight = true;
+  try{
+    const res = await fetch('/api/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: snap
+    });
+    if(res.ok){
+      lastSavedSnapshot = snap;
+    } else {
+      console.error('Save failed with status', res.status);
+    }
+  } catch(err){
+    console.error('Save failed', err);
+  } finally {
+    saveInFlight = false;
+    if(savePending){
+      savePending = false;
+      saveStateNow();
+    }
+  }
+}
+
+let saveDebounceTimer = null;
+function scheduleSave(){
+  clearTimeout(saveDebounceTimer);
+  saveDebounceTimer = setTimeout(saveStateNow, 800);
+}
+// Catch-all: if anything in state changed but a save wasn't explicitly
+// scheduled, this periodic check will still pick it up.
+setInterval(() => {
+  if(JSON.stringify(state) !== lastSavedSnapshot) scheduleSave();
+}, 2500);
+window.addEventListener('beforeunload', saveStateNow);
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'hidden') saveStateNow();
+});
+
+function renderEverything(){
+  renderHero();
+  renderShelf();
+  renderFilters();
+  renderGamesGrid();
+  renderTournaments();
+  renderLeaderboard();
+  renderPackages();
+  renderSiteLogo();
+  renderSiteName();
+  initDragScrollAreas();
+}
+
+async function loadStateThenRender(){
+  // Render immediately with the built-in defaults so the page never
+  // looks blank while we wait on the network.
+  renderEverything();
+  try{
+    const res = await fetch('/api/state');
+    if(res.ok){
+      const saved = await res.json();
+      if(saved && typeof saved === 'object' && Object.keys(saved).length){
+        Object.keys(saved).forEach(key => { state[key] = saved[key]; });
+        renderEverything();
+      }
+    }
+  } catch(err){
+    console.error('Load failed, using built-in defaults', err);
+  } finally {
+    lastSavedSnapshot = JSON.stringify(state);
+  }
+}
+
+/* ===================================================================
    INIT
 =================================================================== */
-renderHero();
-renderShelf();
-renderFilters();
-renderGamesGrid();
-renderTournaments();
-renderLeaderboard();
-renderPackages();
-initDragScrollAreas();
+loadStateThenRender();
 </script>
 </body>
 </html>

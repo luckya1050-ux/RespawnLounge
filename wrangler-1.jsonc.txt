@@ -1,0 +1,12 @@
+{
+  "name": "respawnlounge1",
+  "compatibility_date": "2026-07-01",
+  "main": "worker.js",
+  "assets": {
+    "directory": "./",
+    "binding": "ASSETS"
+  },
+  "kv_namespaces": [
+    { "binding": "SITE_KV", "id": "4a24b91adbd4469395769003759e924a" }
+  ]
+}
