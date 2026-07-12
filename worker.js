@@ -21,7 +21,16 @@ export default {
             headers: { 'Content-Type': 'application/json' }
           });
         }
-        await env.SITE_KV.put('site-state', body);
+        // Cloudflare KV has a 25MB limit per value. Catch that here with
+        // a clear response instead of letting it fail as an opaque 500.
+        try {
+          await env.SITE_KV.put('site-state', body);
+        } catch (err) {
+          return new Response(JSON.stringify({ error: 'Too large to save', detail: String(err) }), {
+            status: 413,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
         return new Response(JSON.stringify({ ok: true }), {
           headers: { 'Content-Type': 'application/json' }
         });
