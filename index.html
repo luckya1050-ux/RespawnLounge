@@ -225,7 +225,7 @@
 
   .field{margin-bottom:14px;}
   .field label{display:block;font-size:12px;color:var(--ink-dim);margin-bottom:6px;font-family:'JetBrains Mono',monospace;letter-spacing:0.04em;}
-  .field input[type=text],.field input[type=number],.field input[type=date],.field input[type=url],.field select,.field textarea{
+  .field input[type=text],.field input[type=number],.field input[type=date],.field input[type=time],.field input[type=url],.field input[type=email],.field select,.field textarea{
     width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:10px;
     padding:11px 12px;color:var(--ink);font-size:14px;
   }
@@ -382,8 +382,10 @@
   body.edit-mode-on .admin-zone{display:flex;}
   .edit-toggle-btn{
     background:rgba(255,255,255,0.06);border:1px solid var(--line);color:var(--ink);
-    font-size:11.5px;padding:8px 12px;border-radius:999px;display:flex;align-items:center;gap:6px;white-space:nowrap;
+    font-size:11.5px;padding:8px 12px;border-radius:999px;align-items:center;gap:6px;white-space:nowrap;
+    display:none;
   }
+  body.admin-revealed .edit-toggle-btn{display:flex;}
   body.edit-mode-on .edit-toggle-btn{background:var(--amber);color:#181527;border-color:var(--amber);font-weight:700;}
   .card-admin-ctrl{position:absolute;top:8px;right:8px;display:flex;gap:6px;z-index:3;}
   .card-admin-ctrl .icon-btn{background:rgba(6,5,10,0.8);}
@@ -402,6 +404,33 @@
     background:rgba(95,225,216,0.15);color:var(--cyan);padding:4px 10px;border-radius:999px;
     display:inline-flex;align-items:center;gap:4px;margin-bottom:14px;
   }
+
+  /* ---------- Login modal ---------- */
+  .login-modal{
+    position:relative;text-align:center;max-width:400px;
+    background:radial-gradient(120% 160% at 50% -10%, rgba(255,182,39,0.14), transparent 55%), var(--panel-solid);
+  }
+  .login-modal-close{
+    position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.08);border:none;color:var(--ink);
+    width:30px;height:30px;border-radius:50%;font-size:16px;
+  }
+  .login-badge{
+    width:56px;height:56px;border-radius:50%;margin:4px auto 14px;display:flex;align-items:center;justify-content:center;
+    font-size:24px;background:linear-gradient(145deg, var(--amber), #ff8a3d);box-shadow:0 8px 24px rgba(255,182,39,0.35);
+  }
+  .login-title{font-family:'Chakra Petch',sans-serif;font-size:22px;margin-bottom:6px;}
+  .login-sub{font-size:13px;color:var(--ink-dim);margin:0 auto 18px;max-width:300px;line-height:1.5;}
+  .login-steps-dots{display:flex;gap:6px;justify-content:center;margin-bottom:20px;}
+  .login-dot{width:6px;height:6px;border-radius:50%;background:var(--line);transition:all .25s ease;}
+  .login-dot.active{width:18px;background:var(--amber);}
+  .login-modal .field{text-align:left;}
+  .login-modal .field input[type=email]{text-align:center;font-size:15px;}
+  .login-code-input{
+    text-align:center !important;font-size:22px !important;letter-spacing:8px;font-family:'JetBrains Mono',monospace;
+    padding:14px 12px !important;
+  }
+  .login-code-hint{font-size:12.5px;color:var(--ink-dim);margin-bottom:16px;}
+  .login-code-hint span{color:var(--ink);font-weight:600;}
 
   /* ---------- Status badges (registrations) ---------- */
   .status-badge{
@@ -461,9 +490,10 @@
 
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="logo"><span class="dot"></span>RESPAWN<span>.</span></div>
+    <div class="logo" id="logoTapZone"><span class="dot"></span>RESPAWN<span>.</span></div>
     <div style="display:flex;align-items:center;gap:10px;">
-      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);">OPEN 24/7</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);" id="openStatusText">OPEN 24/7</div>
+      <button class="edit-toggle-btn" id="customerLoginBtn" style="display:flex;">👤 Login</button>
       <button class="edit-toggle-btn" id="editModeToggle">🔒 Edit</button>
     </div>
   </div>
@@ -766,6 +796,38 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="loginModalBackdrop">
+  <div class="modal login-modal">
+    <button class="modal-close login-modal-close" data-close="loginModalBackdrop">&times;</button>
+
+    <div class="login-badge">👤</div>
+    <h3 class="login-title">Log in</h3>
+    <p class="login-sub" id="loginModalSub">One-time email check — after this, tournament sign-ups are instant on this device.</p>
+
+    <div class="login-steps-dots">
+      <span class="login-dot active" id="loginDot1"></span>
+      <span class="login-dot" id="loginDot2"></span>
+    </div>
+
+    <div class="reg-step show" id="loginStepEmail">
+      <div class="field"><label>Email address</label><input type="email" id="loginEmail" placeholder="you@example.com" required></div>
+      <button type="button" class="btn btn-primary" id="loginSendCodeBtn" style="width:100%;justify-content:center;">Send verification code</button>
+    </div>
+
+    <div class="reg-step" id="loginStepVerify">
+      <div class="login-code-hint">✉️ We sent a code to <span id="loginEmailEcho"></span></div>
+      <div class="field">
+        <label>6-digit code</label>
+        <input type="text" id="loginCodeInput" class="login-code-input" inputmode="numeric" maxlength="6" placeholder="• • • • • •">
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn btn-primary" id="loginVerifyBtn" style="flex:1;justify-content:center;">Verify &amp; log in</button>
+        <button type="button" class="btn btn-ghost" id="loginResendBtn">Resend</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="registerModalBackdrop">
   <div class="modal">
     <div class="modal-head">
@@ -878,13 +940,16 @@
 </div>
 
 <div class="modal-backdrop" id="passModalBackdrop">
-  <div class="modal" style="max-width:340px;">
-    <div class="modal-head">
-      <h3>Staff access</h3>
-      <button class="modal-close" data-close="passModalBackdrop">&times;</button>
+  <div class="modal login-modal">
+    <button class="modal-close login-modal-close" data-close="passModalBackdrop">&times;</button>
+
+    <div class="login-badge" style="background:linear-gradient(145deg, var(--cyan), #2fb8ae);box-shadow:0 8px 24px rgba(95,225,216,0.35);">🔒</div>
+    <h3 class="login-title">Staff access</h3>
+    <p class="login-sub">Enter the staff passcode to turn on edit mode across the site.</p>
+
+    <div class="field">
+      <input type="text" id="passInput" class="login-code-input" placeholder="PASSCODE" style="letter-spacing:0.3em;">
     </div>
-    <p class="section-sub">Enter the staff passcode to turn on edit mode across the site.</p>
-    <input type="text" id="passInput" placeholder="PASSCODE" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--ink);text-align:center;letter-spacing:0.3em;font-size:16px;margin:14px 0;">
     <button class="btn btn-primary" id="passUnlockBtn" style="width:100%;justify-content:center;">Unlock</button>
   </div>
 </div>
@@ -997,6 +1062,29 @@ const state = {
 
 const ADMIN_PASS = 'warencarpadinna69';
 let catLabel = { solo:'Solo', duo:'Duo', squad:'Squad', story:'Story Mode', racing:'Racing Sim', pc:'PC', ps5:'PS5', fps:'FPS', sports:'Sports', fighting:'Fighting' };
+
+/* ---------- Hidden admin access — customers never see the Edit button
+   unless they know the trick (tap the logo 5x fast) or use ?admin=1 ---------- */
+function revealAdminButton(){
+  document.body.classList.add('admin-revealed');
+}
+if(new URLSearchParams(location.search).get('admin') === '1'){
+  revealAdminButton();
+}
+(function(){
+  let tapCount = 0;
+  let tapTimer = null;
+  document.getElementById('logoTapZone').addEventListener('click', () => {
+    tapCount++;
+    clearTimeout(tapTimer);
+    tapTimer = setTimeout(() => { tapCount = 0; }, 1500);
+    if(tapCount >= 5){
+      tapCount = 0;
+      revealAdminButton();
+      toast('Admin access unlocked');
+    }
+  });
+})();
 
 /* ---------- Edit mode (inline admin controls, replaces the old Admin tab) ---------- */
 let editMode = false;
@@ -1622,19 +1710,159 @@ function setAvatarPreview(src){
   else { wrap.innerHTML = ''; wrap.classList.remove('show'); }
 }
 
+/* ---------- Customer login (site-wide, persists on this device) ---------- */
+const CUSTOMER_LOGIN_KEY = 'respawnCustomerEmail';
+
+function getLoggedInEmail(){
+  return localStorage.getItem(CUSTOMER_LOGIN_KEY) || null;
+}
+
+function setLoggedInEmail(email){
+  localStorage.setItem(CUSTOMER_LOGIN_KEY, email);
+  syncLoginButton();
+}
+
+function logOutCustomer(){
+  localStorage.removeItem(CUSTOMER_LOGIN_KEY);
+  syncLoginButton();
+  toast('Logged out');
+}
+
+function syncLoginButton(){
+  const btn = document.getElementById('customerLoginBtn');
+  const email = getLoggedInEmail();
+  if(email){
+    const short = email.length > 16 ? email.slice(0, 14) + '…' : email;
+    btn.textContent = `👤 ${short}`;
+    btn.title = 'Tap to log out';
+  } else {
+    btn.textContent = '👤 Login';
+    btn.title = '';
+  }
+}
+syncLoginButton();
+
+function setLoginStepDot(step){
+  document.getElementById('loginDot1').classList.toggle('active', step === 1);
+  document.getElementById('loginDot2').classList.toggle('active', step === 2);
+}
+
+document.getElementById('customerLoginBtn').addEventListener('click', () => {
+  if(getLoggedInEmail()){
+    if(confirm('Log out of this device?')) logOutCustomer();
+    return;
+  }
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginCodeInput').value = '';
+  setLoginStepDot(1);
+  showRegStep('loginStepEmail');
+  openModal('loginModalBackdrop');
+});
+
+let loginPendingEmail = null;
+
+document.getElementById('loginSendCodeBtn').addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  if(!email || !email.includes('@')){ toast('Enter a valid email'); return; }
+  const btn = document.getElementById('loginSendCodeBtn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  try{
+    const res = await fetch('/api/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    if(!res.ok || data.error){
+      toast(data.error === 'Email service not configured yet'
+        ? 'Email sending isn\'t set up yet — contact the café admin'
+        : 'Could not send the code — try again');
+      return;
+    }
+    loginPendingEmail = email;
+    document.getElementById('loginEmailEcho').textContent = email;
+    toast(`Code sent to ${email}`);
+    setLoginStepDot(2);
+    showRegStep('loginStepVerify');
+  } catch(err){
+    toast('Could not send the code — check your connection');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Send verification code';
+  }
+});
+
+document.getElementById('loginResendBtn').addEventListener('click', async () => {
+  if(!loginPendingEmail) return;
+  const btn = document.getElementById('loginResendBtn');
+  btn.disabled = true;
+  try{
+    const res = await fetch('/api/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: loginPendingEmail })
+    });
+    const data = await res.json();
+    if(!res.ok || data.error){ toast('Could not resend the code — try again'); return; }
+    toast('New code sent');
+  } catch(err){
+    toast('Could not resend the code — check your connection');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('loginVerifyBtn').addEventListener('click', async () => {
+  const val = document.getElementById('loginCodeInput').value.trim();
+  if(!val){ toast('Enter the code from your email'); return; }
+  const btn = document.getElementById('loginVerifyBtn');
+  btn.disabled = true;
+  btn.textContent = 'Verifying…';
+  try{
+    const res = await fetch('/api/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: loginPendingEmail, code: val })
+    });
+    const data = await res.json();
+    if(data.verified){
+      setLoggedInEmail(loginPendingEmail);
+      toast('Logged in ✓');
+      closeModal('loginModalBackdrop');
+    } else {
+      toast('Incorrect or expired code, try again');
+    }
+  } catch(err){
+    toast('Could not verify — check your connection');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Verify & log in';
+  }
+});
+
 function openRegisterModal(tournamentId){
   const t = state.tournaments.find(x => x.id === tournamentId);
   if(!t) return;
   regContext = { tournamentId };
   regPendingCode = null;
-  regVerifiedEmail = null;
   regPhotoDraft = '';
   document.getElementById('registerTournamentName').textContent = `Registering for: ${t.name}`;
   document.getElementById('regEmail').value = '';
   document.getElementById('regCodeInput').value = '';
   document.getElementById('regDetailsForm').reset();
   setAvatarPreview('');
-  showRegStep('regStepEmail');
+
+  // Already logged in on this device — skip straight past the email +
+  // verification steps, no need to re-verify every time.
+  const loggedInEmail = getLoggedInEmail();
+  if(loggedInEmail){
+    regVerifiedEmail = loggedInEmail;
+    showRegStep('regStepDetails');
+  } else {
+    regVerifiedEmail = null;
+    showRegStep('regStepEmail');
+  }
   openModal('registerModalBackdrop');
 }
 
