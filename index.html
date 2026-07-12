@@ -858,6 +858,14 @@
       <div class="field"><label>Game</label>
         <select id="resGame" required></select>
       </div>
+      <div class="field">
+        <label>Group size</label>
+        <select id="resGroupSize" required>
+          <option value="solo">Solo — 1 player</option>
+          <option value="duo">Duo — 2 players</option>
+          <option value="squad">Squad — 4 players</option>
+        </select>
+      </div>
       <div class="field" id="resStationField" style="display:none;">
         <label>Station</label>
         <select id="resStation"></select>
@@ -877,7 +885,6 @@
           <option value="240">4 hours</option>
         </select>
       </div>
-      <div id="resPriceDisplay" class="package-price" style="margin:0 0 14px;"></div>
       <div class="field"><label>Your name</label><input type="text" id="resName" placeholder="For staff to call you" required></div>
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">Confirm reservation</button>
     </form>
@@ -2927,20 +2934,14 @@ function fillResStationOptions(){
 }
 
 // Price is just the game's hourly rate scaled to however much time the
-// customer asked for — no package tier to pick.
+// customer asked for — no package tier to pick. Kept internally for the
+// admin log and WhatsApp message; not shown to the customer.
 function computeResPrice(game, durationMinutes){
   if(!game || !durationMinutes) return 0;
   return Math.round(game.price * (durationMinutes / 60));
 }
 
-function updateResPriceDisplay(){
-  const game = state.games.find(g => g.id === document.getElementById('resGame').value);
-  const durationMinutes = Number(document.getElementById('resDuration').value);
-  const display = document.getElementById('resPriceDisplay');
-  if(!game){ display.textContent = ''; return; }
-  const total = computeResPrice(game, durationMinutes);
-  display.innerHTML = `LKR ${total}<span> for ${describeDuration(durationMinutes)}</span>`;
-}
+const groupSizeLabel = { solo: 'Solo (1 player)', duo: 'Duo (2 players)', squad: 'Squad (4 players)' };
 
 // "90" -> "1.5 hours", "60" -> "1 hour", "30" -> "30 minutes"
 function describeDuration(mins){
@@ -2949,12 +2950,25 @@ function describeDuration(mins){
   return `${mins} minutes`;
 }
 
+// Racing sim games (Euro Truck Sim, F1 22, Forza Horizon, etc.) can also be
+// booked for a quick 15-minute run — every other game starts at 30 minutes.
+function fillResDurationOptions(game){
+  const sel = document.getElementById('resDuration');
+  const isRacing = !!(game && game.cats.includes('racing'));
+  const opts = [];
+  if(isRacing) opts.push([15, '15 minutes']);
+  opts.push([30,'30 minutes'], [60,'1 hour'], [90,'1.5 hours'], [120,'2 hours'], [180,'3 hours'], [240,'4 hours']);
+  const prevValue = sel.value;
+  sel.innerHTML = opts.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+  sel.value = opts.some(([v]) => String(v) === prevValue) ? prevValue : (isRacing ? '15' : '60');
+}
+
 function openReserveModal({ gameId } = {}){
   fillResGameOptions();
   const initialGameId = gameId || state.games[0]?.id;
   document.getElementById('resGame').value = initialGameId;
-  document.getElementById('resDuration').value = '60';
-  updateResPriceDisplay();
+  fillResDurationOptions(state.games.find(g => g.id === initialGameId));
+  document.getElementById('resGroupSize').value = 'solo';
   fillResStationOptions();
   document.getElementById('resDate').value = new Date().toISOString().slice(0,10);
   document.getElementById('resDate').min = new Date().toISOString().slice(0,10);
@@ -2963,11 +2977,10 @@ function openReserveModal({ gameId } = {}){
   openModal('reserveModalBackdrop');
 }
 
-document.getElementById('resGame').addEventListener('change', () => {
-  updateResPriceDisplay();
+document.getElementById('resGame').addEventListener('change', e => {
+  fillResDurationOptions(state.games.find(g => g.id === e.target.value));
   fillResStationOptions();
 });
-document.getElementById('resDuration').addEventListener('change', updateResPriceDisplay);
 
 document.getElementById('reserveForm').addEventListener('submit', e => {
   e.preventDefault();
@@ -2977,6 +2990,7 @@ document.getElementById('reserveForm').addEventListener('submit', e => {
   const name = document.getElementById('resName').value.trim();
   const game = state.games.find(g => g.id === gameId);
   const newDur = Number(document.getElementById('resDuration').value);
+  const groupSize = document.getElementById('resGroupSize').value;
   if(!game || !date || !time || !name || !newDur) return;
 
   const stationType = getGameStationType(game);
@@ -3019,6 +3033,7 @@ document.getElementById('reserveForm').addEventListener('submit', e => {
     gameId, gameName: game.name,
     stationId: station ? station.id : null,
     stationLabel: station ? station.label : null,
+    groupSize,
     price, unit: `/${describeDuration(newDur)}`,
     durationMinutes: newDur,
     date, time, name
@@ -3026,7 +3041,7 @@ document.getElementById('reserveForm').addEventListener('submit', e => {
 
   closeModal('reserveModalBackdrop');
   renderAdminReservations();
-  toast(`Reserved! ${game.name}${station ? ' · ' + station.label : ''} · ${date} ${describeBookedTime({time, durationMinutes:newDur})} · LKR ${price}`);
+  toast(`Reserved! ${game.name}${station ? ' · ' + station.label : ''} · ${date} ${describeBookedTime({time, durationMinutes:newDur})}`);
 
   // Hand the reservation off to WhatsApp so the customer can send it
   // straight to the café to confirm.
@@ -3034,7 +3049,8 @@ document.getElementById('reserveForm').addEventListener('submit', e => {
     `New reservation — Respawn Lounge`,
     `Name: ${name}`,
     `Game: ${game.name}`,
-    `Duration: ${describeDuration(newDur)} (LKR ${price})`,
+    `Group size: ${groupSizeLabel[groupSize] || groupSize}`,
+    `Duration: ${describeDuration(newDur)}`,
     station ? `Station: ${station.label}` : null,
     `Date: ${date}`,
     `Time: ${time}`
@@ -3254,7 +3270,7 @@ function renderAdminReservationsFiltered(){
     <div class="admin-list-row">
       <div class="info">
         <h5>${r.gameName}${r.stationLabel ? ' · ' + r.stationLabel : ''}</h5>
-        <div class="sub">${r.date} · ${describeBookedTime(r)} · LKR ${r.price} · ${r.name}</div>
+        <div class="sub">${r.date} · ${describeBookedTime(r)} · ${groupSizeLabel[r.groupSize] || 'Solo'} · ${r.name}</div>
       </div>
       <div class="actions">
         <button class="icon-btn" data-del-res="${r.id}">🗑</button>
