@@ -405,6 +405,7 @@
   }
   body.admin-revealed .edit-toggle-btn{display:flex;}
   body.edit-mode-on .edit-toggle-btn{background:var(--amber);color:#181527;border-color:var(--amber);font-weight:700;}
+  .login-btn-avatar{width:18px;height:18px;border-radius:50%;object-fit:cover;flex-shrink:0;}
   .card-admin-ctrl{position:absolute;top:8px;right:8px;display:flex;gap:6px;z-index:3;}
   .card-admin-ctrl .icon-btn{background:rgba(6,5,10,0.8);}
   .package-card{position:relative;}
@@ -909,6 +910,11 @@
         <div class="hint-text" id="loginUsernameHint" style="min-height:14px;"></div>
       </div>
       <div class="field" style="text-align:left;">
+        <label>Phone number</label>
+        <input type="text" id="loginPhone" placeholder="07X XXX XXXX" autocomplete="off" inputmode="tel">
+        <div class="hint-text" id="loginPhoneHint" style="min-height:14px;">Sri Lankan mobile number — not verified, used to reach you about bookings.</div>
+      </div>
+      <div class="field" style="text-align:left;">
         <label>Profile picture</label>
         <label class="file-drop">
           <span>📷 Upload a profile photo</span>
@@ -918,6 +924,37 @@
       </div>
       <button type="button" class="btn btn-primary" id="loginSaveProfileBtn" style="width:100%;justify-content:center;">Save profile &amp; log in</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="accountModalBackdrop">
+  <div class="modal login-modal">
+    <button class="modal-close login-modal-close" data-close="accountModalBackdrop">&times;</button>
+
+    <div class="login-badge">👤</div>
+    <h3 class="login-title">Your profile</h3>
+    <p class="login-sub" id="accountEmailDisplay"></p>
+
+    <div class="field" style="text-align:left;">
+      <label>Username</label>
+      <input type="text" id="accountUsername" placeholder="@yourtag" autocomplete="off">
+      <div class="hint-text" id="accountUsernameHint" style="min-height:14px;"></div>
+    </div>
+    <div class="field" style="text-align:left;">
+      <label>Phone number</label>
+      <input type="text" id="accountPhone" placeholder="07X XXX XXXX" autocomplete="off" inputmode="tel">
+      <div class="hint-text" id="accountPhoneHint" style="min-height:14px;">Sri Lankan mobile number — not verified, used to reach you about bookings.</div>
+    </div>
+    <div class="field" style="text-align:left;">
+      <label>Profile picture</label>
+      <label class="file-drop">
+        <span>📷 Change profile photo</span>
+        <input type="file" id="accountPhotoFile" accept="image/*">
+      </label>
+      <div class="avatar-preview" id="accountAvatarPreview"></div>
+    </div>
+    <button type="button" class="btn btn-primary" id="accountSaveBtn" style="width:100%;justify-content:center;">Save changes</button>
+    <button type="button" class="btn btn-ghost" id="accountLogoutBtn" style="width:100%;justify-content:center;margin-top:8px;">Log out of this device</button>
   </div>
 </div>
 
@@ -1863,9 +1900,13 @@ function syncLoginButton(){
   const btn = document.getElementById('customerLoginBtn');
   const email = getLoggedInEmail();
   if(email){
-    const short = email.length > 16 ? email.slice(0, 14) + '…' : email;
-    btn.textContent = `👤 ${short}`;
-    btn.title = 'Tap to log out';
+    const profile = getCustomerProfile(email);
+    const label = profile?.username ? `@${profile.username}` : (email.length > 16 ? email.slice(0, 14) + '…' : email);
+    const avatarHtml = profile?.photo
+      ? `<img class="login-btn-avatar" src="${profile.photo}" alt="">`
+      : '👤';
+    btn.innerHTML = `${avatarHtml} ${label}`;
+    btn.title = 'Tap to edit your profile';
   } else {
     btn.textContent = '👤 Login';
     btn.title = '';
@@ -1905,10 +1946,22 @@ function setLoginAvatarPreview(src){
   if(src){ wrap.innerHTML = `<img src="${src}" alt="profile preview">`; wrap.classList.add('show'); }
   else { wrap.innerHTML = ''; wrap.classList.remove('show'); }
 }
+function setAccountAvatarPreview(src){
+  const wrap = document.getElementById('accountAvatarPreview');
+  if(src){ wrap.innerHTML = `<img src="${src}" alt="profile preview">`; wrap.classList.add('show'); }
+  else { wrap.innerHTML = ''; wrap.classList.remove('show'); }
+}
+// Sri Lankan mobile numbers: optional +94 or leading 0, then a 7 followed by
+// 8 more digits (e.g. 0771234567, +94771234567, 771234567). Not OTP-verified —
+// just format-checked, since this is only used to reach customers about bookings.
+function isValidSLPhone(phone){
+  const cleaned = (phone || '').replace(/[\s-]/g, '');
+  return /^(?:\+94|0)?7\d{8}$/.test(cleaned);
+}
 
 document.getElementById('customerLoginBtn').addEventListener('click', () => {
   if(getLoggedInEmail()){
-    if(confirm('Log out of this device?')) logOutCustomer();
+    openAccountModal();
     return;
   }
   document.getElementById('loginEmail').value = '';
@@ -2028,6 +2081,23 @@ document.getElementById('loginUsername').addEventListener('input', () => {
   }
 });
 
+document.getElementById('loginPhone').addEventListener('input', () => {
+  const hint = document.getElementById('loginPhoneHint');
+  const val = document.getElementById('loginPhone').value.trim();
+  if(!val){
+    hint.textContent = 'Sri Lankan mobile number — not verified, used to reach you about bookings.';
+    hint.style.color = '';
+    return;
+  }
+  if(!isValidSLPhone(val)){
+    hint.textContent = 'Enter a valid Sri Lankan mobile number (e.g. 077 123 4567)';
+    hint.style.color = 'var(--red, #e0313f)';
+  } else {
+    hint.textContent = 'Looks good ✓';
+    hint.style.color = 'var(--cyan, #5fe1d8)';
+  }
+});
+
 document.getElementById('loginPhotoFile').addEventListener('change', async e => {
   const file = e.target.files[0];
   if(!file) return;
@@ -2037,20 +2107,116 @@ document.getElementById('loginPhotoFile').addEventListener('change', async e => 
 
 document.getElementById('loginSaveProfileBtn').addEventListener('click', () => {
   const username = document.getElementById('loginUsername').value.trim();
+  const phone = document.getElementById('loginPhone').value.trim();
   if(!username){ toast('Pick a username to continue'); return; }
   if(isUsernameTaken(username, loginPendingEmail)){
     toast('That username is taken — pick another one');
     return;
   }
+  if(!phone){ toast('Add a phone number to continue'); return; }
+  if(!isValidSLPhone(phone)){
+    toast('Enter a valid Sri Lankan mobile number (e.g. 077 123 4567)');
+    return;
+  }
   upsertCustomerProfile({
     email: loginPendingEmail,
     username,
+    phone,
     photo: loginProfilePhotoDraft,
     createdAt: new Date().toISOString()
   });
   setLoggedInEmail(loginPendingEmail);
   toast(`Profile created — welcome, @${username} ✓`);
   closeModal('loginModalBackdrop');
+});
+
+/* ---------- Account modal (edit username/phone/photo after login) ---------- */
+let accountPhotoDraft = '';
+function openAccountModal(){
+  const email = getLoggedInEmail();
+  if(!email) return;
+  const profile = getCustomerProfile(email) || {};
+  accountPhotoDraft = profile.photo || '';
+  document.getElementById('accountEmailDisplay').textContent = email;
+  document.getElementById('accountUsername').value = profile.username || '';
+  document.getElementById('accountPhone').value = profile.phone || '';
+  document.getElementById('accountUsernameHint').textContent = '';
+  document.getElementById('accountPhoneHint').textContent = 'Sri Lankan mobile number — not verified, used to reach you about bookings.';
+  document.getElementById('accountPhoneHint').style.color = '';
+  setAccountAvatarPreview(accountPhotoDraft);
+  openModal('accountModalBackdrop');
+}
+
+document.getElementById('accountUsername').addEventListener('input', () => {
+  const hint = document.getElementById('accountUsernameHint');
+  const val = document.getElementById('accountUsername').value.trim();
+  const email = getLoggedInEmail();
+  if(!val){ hint.textContent = ''; return; }
+  if(isUsernameTaken(val, email)){
+    hint.textContent = 'That username is already taken — try another';
+    hint.style.color = 'var(--red, #e0313f)';
+  } else {
+    hint.textContent = 'Username is available ✓';
+    hint.style.color = 'var(--cyan, #5fe1d8)';
+  }
+});
+
+document.getElementById('accountPhone').addEventListener('input', () => {
+  const hint = document.getElementById('accountPhoneHint');
+  const val = document.getElementById('accountPhone').value.trim();
+  if(!val){
+    hint.textContent = 'Sri Lankan mobile number — not verified, used to reach you about bookings.';
+    hint.style.color = '';
+    return;
+  }
+  if(!isValidSLPhone(val)){
+    hint.textContent = 'Enter a valid Sri Lankan mobile number (e.g. 077 123 4567)';
+    hint.style.color = 'var(--red, #e0313f)';
+  } else {
+    hint.textContent = 'Looks good ✓';
+    hint.style.color = 'var(--cyan, #5fe1d8)';
+  }
+});
+
+document.getElementById('accountPhotoFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  accountPhotoDraft = await fileToDataURL(file);
+  setAccountAvatarPreview(accountPhotoDraft);
+});
+
+document.getElementById('accountSaveBtn').addEventListener('click', () => {
+  const email = getLoggedInEmail();
+  if(!email) return;
+  const username = document.getElementById('accountUsername').value.trim();
+  const phone = document.getElementById('accountPhone').value.trim();
+  if(!username){ toast('Pick a username to continue'); return; }
+  if(isUsernameTaken(username, email)){
+    toast('That username is taken — pick another one');
+    return;
+  }
+  if(!phone){ toast('Add a phone number to continue'); return; }
+  if(!isValidSLPhone(phone)){
+    toast('Enter a valid Sri Lankan mobile number (e.g. 077 123 4567)');
+    return;
+  }
+  upsertCustomerProfile({
+    email,
+    username,
+    phone,
+    photo: accountPhotoDraft,
+    createdAt: (getCustomerProfile(email) || {}).createdAt || new Date().toISOString()
+  });
+  syncLoginButton();
+  toast('Profile updated ✓');
+  closeModal('accountModalBackdrop');
+});
+
+document.getElementById('accountLogoutBtn').addEventListener('click', () => {
+  if(confirm('Log out of this device?')){
+    closeModal('accountModalBackdrop');
+    logOutCustomer();
+  }
 });
 
 function openRegisterModal(tournamentId){
@@ -2076,6 +2242,7 @@ function openRegisterModal(tournamentId){
     const profile = getCustomerProfile(loggedInEmail);
     if(profile){
       document.getElementById('regUsername').value = profile.username || '';
+      document.getElementById('regPhone').value = profile.phone || '';
       regPhotoDraft = profile.photo || '';
       setAvatarPreview(regPhotoDraft);
     }
@@ -2187,15 +2354,21 @@ document.getElementById('regDetailsForm').addEventListener('submit', e => {
   const t = state.tournaments.find(x => x.id === regContext.tournamentId);
   if(!t || !regVerifiedEmail) return;
   const username = document.getElementById('regUsername').value.trim();
+  const phone = document.getElementById('regPhone').value.trim();
   if(isUsernameTaken(username, regVerifiedEmail)){
     toast('That username is already taken by another player — pick another one');
     return;
   }
+  if(!isValidSLPhone(phone)){
+    toast('Enter a valid Sri Lankan mobile number (e.g. 077 123 4567)');
+    return;
+  }
   // Keep the account-level profile (used for login + future sign-ups) in
-  // sync with whatever username/photo they confirm here.
+  // sync with whatever username/phone/photo they confirm here.
   upsertCustomerProfile({
     email: regVerifiedEmail,
     username,
+    phone,
     photo: regPhotoDraft,
     createdAt: (getCustomerProfile(regVerifiedEmail) || {}).createdAt || new Date().toISOString()
   });
@@ -2204,7 +2377,7 @@ document.getElementById('regDetailsForm').addEventListener('submit', e => {
     email: regVerifiedEmail,
     realName: document.getElementById('regRealName').value.trim(),
     username,
-    phone: document.getElementById('regPhone').value.trim(),
+    phone,
     photo: regPhotoDraft,
     registeredAt: new Date().toISOString(),
     status: 'pending',
