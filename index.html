@@ -498,13 +498,13 @@
   #splashScreen.splash-hide{opacity:0;pointer-events:none;}
   .splash-logo{
     width:96px;height:96px;object-fit:contain;
-    filter:drop-shadow(0 0 22px rgba(95,225,216,0.5)) drop-shadow(0 0 6px rgba(255,78,134,0.35));
+    filter:drop-shadow(0 0 22px rgba(95,225,216,0.55));
     animation:splashPulse 1.8s ease-in-out infinite;
   }
   .splash-name{
     font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:17px;
     letter-spacing:0.4em;color:var(--ink-dim);text-transform:uppercase;
-    margin-left:0.4em; /* optical centering vs letter-spacing */
+    margin-left:0.4em;
   }
   .splash-bar-track{
     width:190px;height:3px;border-radius:999px;overflow:hidden;
@@ -512,7 +512,7 @@
   }
   .splash-bar-fill{
     width:45%;height:100%;border-radius:999px;
-    background:linear-gradient(90deg,#3B82F6,var(--cyan));
+    background:var(--cyan);
     animation:splashSlide 1.3s ease-in-out infinite;
   }
   @keyframes splashPulse{
@@ -533,7 +533,6 @@
   <div class="splash-name">RESPAWN LOUNGE</div>
   <div class="splash-bar-track"><div class="splash-bar-fill"></div></div>
 </div>
-
 
 <div class="bg-layer" id="bgA"></div>
 <div class="bg-layer" id="bgB"></div>
@@ -695,7 +694,7 @@
         <div class="check-grid" id="gameCatGrid"></div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Price / hr (LKR)</label><input type="number" id="gamePrice" min="0" required></div>
+        <div class="field"><label>Price / hr (LKR) — optional</label><input type="number" id="gamePrice" min="0"></div>
         <div class="field"><label>Slots open</label><input type="text" id="gameSlots" placeholder="e.g. 4 open"></div>
       </div>
       <div class="field">
@@ -2475,9 +2474,18 @@ function fillResPackageOptions(gameId){
   const sel = document.getElementById('resPackage');
   const game = state.games.find(g => g.id === gameId);
   const visible = state.packages.filter(p => !p.hidden);
+  // A package tied to a specific platform (PC / PS5, detected from its name)
+  // should only be offered if the selected game is tagged for that platform.
+  // Packages with no platform in their name (Walk-in, Racing Sim, VIP Boss
+  // Room, etc.) stay available regardless — they're not platform-specific.
+  const platformOk = p => {
+    const type = getPackageStationType(p);
+    if(!type) return true;
+    return game ? game.cats.includes(type) : true;
+  };
   // Prefer packages whose "who can play" category matches this game's categories, but always show every visible package as a fallback.
-  const matching = game ? visible.filter(p => (p.cats||[]).some(c => game.cats.includes(c))) : [];
-  const list = matching.length ? matching : visible;
+  const matching = game ? visible.filter(p => (p.cats||[]).some(c => game.cats.includes(c)) && platformOk(p)) : [];
+  const list = matching.length ? matching : visible.filter(platformOk);
   sel.innerHTML = list.map(p => `<option value="${p.id}">${p.name} — LKR ${p.price}${p.unit}</option>`).join('');
 }
 
