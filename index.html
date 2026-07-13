@@ -281,6 +281,7 @@
   .video-preview-list{display:flex;flex-direction:column;gap:10px;margin-top:10px;}
   .video-preview-item{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#000;}
   .video-preview-item video{width:100%;max-height:220px;display:block;}
+  .video-preview-item iframe{width:100%;height:220px;display:block;border:0;}
   .video-preview-item button{
     position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;border:none;
     background:rgba(6,5,10,0.75);color:#fff;font-size:14px;line-height:1;
@@ -297,6 +298,7 @@
   .detail-video-list{display:flex;flex-direction:column;gap:12px;margin-bottom:16px;}
   .detail-video{width:100%;border-radius:14px;overflow:hidden;background:#000;position:relative;}
   .detail-video video{width:100%;display:block;max-height:320px;}
+  .detail-video iframe{width:100%;height:320px;display:block;border:0;}
   .detail-gallery{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;}
   .detail-gallery img{
     flex:0 0 130px;height:130px;object-fit:cover;border-radius:10px;border:1px solid var(--line);cursor:pointer;
@@ -1456,11 +1458,38 @@ function renderGalleryPreview(){
   `).join('');
 }
 
+// A plain <video src="..."> tag only works with a direct link to a video
+// file (.mp4, .webm, blob:, etc). YouTube/Vimeo "watch" links are pages,
+// not video files, so the browser can't play them that way — they need to
+// be rendered as an embedded player <iframe> instead. This detects those
+// hosted-platform links and returns the right markup either way.
+function getHostedVideoEmbed(src){
+  if(!src) return null;
+  let m = src.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/i);
+  if(m) return { platform:'youtube', id:m[1] };
+  m = src.match(/youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)([A-Za-z0-9_-]{6,})/i);
+  if(m) return { platform:'youtube', id:m[1] };
+  m = src.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+  if(m) return { platform:'vimeo', id:m[1] };
+  return null;
+}
+
+function videoMediaHTML(src, videoAttrs=''){
+  const hosted = getHostedVideoEmbed(src);
+  if(hosted){
+    const embedSrc = hosted.platform === 'youtube'
+      ? `https://www.youtube.com/embed/${hosted.id}`
+      : `https://player.vimeo.com/video/${hosted.id}`;
+    return `<iframe src="${embedSrc}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+  }
+  return `<video src="${src}" ${videoAttrs}></video>`;
+}
+
 function renderVideoPreviewList(){
   const wrap = document.getElementById('videoPreviewList');
   wrap.innerHTML = videosDraft.map((src, i) => `
     <div class="video-preview-item">
-      <video src="${src}" controls muted></video>
+      ${videoMediaHTML(src, 'controls muted')}
       <button type="button" data-remove-video="${i}">&times;</button>
     </div>
   `).join('');
@@ -1777,7 +1806,7 @@ function openGameDetail(id){
   if(videos.length){
     videoList.innerHTML = videos.map(src => `
       <div class="detail-video">
-        <video src="${src}" controls playsinline></video>
+        ${videoMediaHTML(src, 'controls playsinline')}
         <button type="button" class="fullscreen-btn" data-fullscreen-video>⛶</button>
       </div>
     `).join('');
