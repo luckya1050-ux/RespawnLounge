@@ -278,10 +278,13 @@
     position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:none;
     background:rgba(6,5,10,0.75);color:#fff;font-size:12px;line-height:1;
   }
-  .video-preview{width:100%;border-radius:12px;overflow:hidden;margin-top:10px;border:1px solid var(--line);display:none;background:#000;}
-  .video-preview.show{display:block;}
-  .video-preview video{width:100%;max-height:220px;display:block;}
-  .video-clear{margin-top:8px;}
+  .video-preview-list{display:flex;flex-direction:column;gap:10px;margin-top:10px;}
+  .video-preview-item{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#000;}
+  .video-preview-item video{width:100%;max-height:220px;display:block;}
+  .video-preview-item button{
+    position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;border:none;
+    background:rgba(6,5,10,0.75);color:#fff;font-size:14px;line-height:1;
+  }
 
   /* ---------- Public game detail (gameplay media) ---------- */
   .media-btn{
@@ -289,15 +292,38 @@
     border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:8px;font-size:12px;
     display:flex;align-items:center;gap:6px;
   }
-  .detail-cover{width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;margin-bottom:16px;}
+  .detail-cover{width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;margin-bottom:16px;position:relative;cursor:pointer;}
   .detail-cover img{width:100%;height:100%;object-fit:cover;}
-  .detail-video{width:100%;border-radius:14px;overflow:hidden;margin-bottom:16px;background:#000;}
+  .detail-video-list{display:flex;flex-direction:column;gap:12px;margin-bottom:16px;}
+  .detail-video{width:100%;border-radius:14px;overflow:hidden;background:#000;position:relative;}
   .detail-video video{width:100%;display:block;max-height:320px;}
   .detail-gallery{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;}
   .detail-gallery img{
-    flex:0 0 130px;height:130px;object-fit:cover;border-radius:10px;border:1px solid var(--line);
+    flex:0 0 130px;height:130px;object-fit:cover;border-radius:10px;border:1px solid var(--line);cursor:pointer;
   }
   .detail-sub-label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-dim);margin:16px 0 10px;}
+
+  .fullscreen-btn{
+    position:absolute;bottom:8px;right:8px;width:34px;height:34px;border-radius:8px;border:none;
+    background:rgba(6,5,10,0.65);color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;
+    z-index:2;backdrop-filter:blur(2px);
+  }
+  .expand-hint{
+    position:absolute;bottom:8px;right:8px;width:30px;height:30px;border-radius:8px;
+    background:rgba(6,5,10,0.6);color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;
+    pointer-events:none;
+  }
+
+  .lightbox-backdrop{
+    position:fixed;inset:0;background:rgba(0,0,0,0.94);z-index:500;display:none;
+    align-items:center;justify-content:center;padding:20px;
+  }
+  .lightbox-backdrop.show{display:flex;}
+  .lightbox-backdrop img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;}
+  .lightbox-close{
+    position:absolute;top:18px;right:18px;width:40px;height:40px;border-radius:50%;border:none;
+    background:rgba(255,255,255,0.12);color:#fff;font-size:20px;z-index:2;
+  }
 
   /* ---------- Packages ---------- */
   .packages-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;padding:6px 0 30px;}
@@ -721,17 +747,17 @@
         <div class="gallery-preview" id="galleryPreview"></div>
       </div>
       <div class="field">
-        <label>Gameplay video clip</label>
+        <label>Gameplay video clips</label>
         <label class="file-drop">
-          <span>🎬 Upload a gameplay video clip</span>
-          <input type="file" id="videoFile" accept="video/*">
+          <span>🎬 Add gameplay video clips (multiple allowed)</span>
+          <input type="file" id="videoFile" accept="video/*" multiple>
         </label>
         <div class="hint-text">Or link a hosted clip instead:</div>
-        <input type="url" id="videoUrl" placeholder="https://... direct video link">
-        <div class="video-preview" id="videoPreviewWrap">
-          <video id="videoPreview" controls muted></video>
+        <div style="display:flex;gap:8px;">
+          <input type="url" id="videoUrl" placeholder="https://... direct video link" style="flex:1;">
+          <button type="button" class="btn btn-ghost btn-sm" id="addVideoUrlBtn">Add</button>
         </div>
-        <button type="button" class="btn btn-ghost btn-sm video-clear" id="clearVideoBtn" style="display:none;">Remove video</button>
+        <div class="video-preview-list" id="videoPreviewList"></div>
       </div>
       <div class="field">
         <label>Categories</label>
@@ -1136,12 +1162,12 @@
       <h3 id="detailTitle">Game</h3>
       <button class="modal-close" data-close="gameDetailBackdrop">&times;</button>
     </div>
-    <div class="detail-cover"><img id="detailCoverImg" alt=""></div>
+    <div class="detail-cover"><img id="detailCoverImg" alt=""><span class="expand-hint">⛶</span></div>
     <p id="detailDesc" style="color:var(--ink-dim);font-size:13.5px;margin-bottom:6px;"></p>
 
     <div id="detailVideoWrap" style="display:none;">
-      <div class="detail-sub-label">Gameplay clip</div>
-      <div class="detail-video"><video id="detailVideo" controls></video></div>
+      <div class="detail-sub-label">Gameplay clips</div>
+      <div class="detail-video-list" id="detailVideoList"></div>
     </div>
 
     <div id="detailGalleryWrap" style="display:none;">
@@ -1153,6 +1179,11 @@
   </div>
 </div>
 
+<div class="lightbox-backdrop" id="lightboxBackdrop">
+  <button class="lightbox-close" id="lightboxClose">&times;</button>
+  <img id="lightboxImg" alt="">
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1161,15 +1192,15 @@
 =================================================================== */
 const state = {
   games: [
-    { id:'g1', name:'God of War', img:'assets/god-of-war.jpg', desc:'Nordic myth, a father, a son, and an axe that always comes home.', cats:['story','pc'], price:120, slots:'3 open', base:'#16283a', accent:'#c94b3f', gallery:[], video:'' },
-    { id:'g2', name:'EA Sports FC 26', img:'assets/fc26.jpg', desc:'Champions League nights, your squad, your tactics.', cats:['squad','pc'], price:100, slots:'6 open', base:'#0d1b2e', accent:'#e0313f', gallery:[], video:'' },
-    { id:'g3', name:'Mortal Kombat 1', img:'assets/mk1.jpg', desc:'New era, new fatalities. Bring a friend for tag-team.', cats:['duo','story','pc'], price:110, slots:'4 open', base:'#12283d', accent:'#ff7a1a', gallery:[], video:'' },
-    { id:'g4', name:'Mortal Kombat 11', img:'assets/mk11.jpg', desc:'The scarred veteran of the fight roster — still hits hard.', cats:['duo','story','pc'], price:90, slots:'5 open', base:'#2b1706', accent:'#ffb627', gallery:[], video:'' },
-    { id:'g5', name:'Fortnite', img:'assets/fortnite.jpg', desc:'Drop in, squad up, last team standing takes the Victory Royale.', cats:['squad','pc'], price:90, slots:'8 open', base:'#241633', accent:'#ff4e86', gallery:[], video:'' },
-    { id:'g6', name:'Euro Truck Simulator 2', img:'assets/ets2.png', desc:'Long hauls across Europe on the force-feedback rig.', cats:['racing','pc'], price:150, slots:'2 open', base:'#122a3d', accent:'#f2b705', gallery:[], video:'' },
-    { id:'g7', name:'EA Sports F1 22', img:'assets/f1-22.jpg', desc:'Grid start, full weekend format, wheel + pedals included.', cats:['racing','squad','pc'], price:150, slots:'2 open', base:'#391a12', accent:'#ff5b35', gallery:[], video:'' },
-    { id:'g8', name:'Forza Horizon 5', img:'assets/forza-horizon-5.jpg', desc:'Open-world Mexico, festival playlist, party convoy runs.', cats:['racing','squad','pc'], price:130, slots:'3 open', base:'#0c2b28', accent:'#38e6c8', gallery:[], video:'' },
-    { id:'g9', name:'EA Sports FC 25', img:'assets/fc25.webp', desc:"Last season's pitch, still one of the busiest bays.", cats:['squad','pc'], price:80, slots:'open', base:'#10240f', accent:'#7CFC8A', gallery:[], video:'' }
+    { id:'g1', name:'God of War', img:'assets/god-of-war.jpg', desc:'Nordic myth, a father, a son, and an axe that always comes home.', cats:['story','pc'], price:120, slots:'3 open', base:'#16283a', accent:'#c94b3f', gallery:[], videos:[] },
+    { id:'g2', name:'EA Sports FC 26', img:'assets/fc26.jpg', desc:'Champions League nights, your squad, your tactics.', cats:['squad','pc'], price:100, slots:'6 open', base:'#0d1b2e', accent:'#e0313f', gallery:[], videos:[] },
+    { id:'g3', name:'Mortal Kombat 1', img:'assets/mk1.jpg', desc:'New era, new fatalities. Bring a friend for tag-team.', cats:['duo','story','pc'], price:110, slots:'4 open', base:'#12283d', accent:'#ff7a1a', gallery:[], videos:[] },
+    { id:'g4', name:'Mortal Kombat 11', img:'assets/mk11.jpg', desc:'The scarred veteran of the fight roster — still hits hard.', cats:['duo','story','pc'], price:90, slots:'5 open', base:'#2b1706', accent:'#ffb627', gallery:[], videos:[] },
+    { id:'g5', name:'Fortnite', img:'assets/fortnite.jpg', desc:'Drop in, squad up, last team standing takes the Victory Royale.', cats:['squad','pc'], price:90, slots:'8 open', base:'#241633', accent:'#ff4e86', gallery:[], videos:[] },
+    { id:'g6', name:'Euro Truck Simulator 2', img:'assets/ets2.png', desc:'Long hauls across Europe on the force-feedback rig.', cats:['racing','pc'], price:150, slots:'2 open', base:'#122a3d', accent:'#f2b705', gallery:[], videos:[] },
+    { id:'g7', name:'EA Sports F1 22', img:'assets/f1-22.jpg', desc:'Grid start, full weekend format, wheel + pedals included.', cats:['racing','squad','pc'], price:150, slots:'2 open', base:'#391a12', accent:'#ff5b35', gallery:[], videos:[] },
+    { id:'g8', name:'Forza Horizon 5', img:'assets/forza-horizon-5.jpg', desc:'Open-world Mexico, festival playlist, party convoy runs.', cats:['racing','squad','pc'], price:130, slots:'3 open', base:'#0c2b28', accent:'#38e6c8', gallery:[], videos:[] },
+    { id:'g9', name:'EA Sports FC 25', img:'assets/fc25.webp', desc:"Last season's pitch, still one of the busiest bays.", cats:['squad','pc'], price:80, slots:'open', base:'#10240f', accent:'#7CFC8A', gallery:[], videos:[] }
   ],
   packages: [
     { id:'p1', name:'Walk-in', price:100, unit:'/hour', features:['Any single station','No booking needed','Pay at counter'], highlight:false, hidden:false, cats:['solo'], durationMinutes:60 },
@@ -1376,7 +1407,7 @@ document.getElementById('adminCategoriesList').addEventListener('click', e => {
 
 /* ---------- Media draft state (used while the game form modal is open) ---------- */
 let galleryDraft = [];
-let videoDraft = '';
+let videosDraft = [];
 
 function fileToDataURL(file, maxDim = 1000, quality = 0.75){
   return new Promise((resolve, reject) => {
@@ -1425,12 +1456,14 @@ function renderGalleryPreview(){
   `).join('');
 }
 
-function setVideoPreview(src){
-  const wrap = document.getElementById('videoPreviewWrap');
-  const vid = document.getElementById('videoPreview');
-  const clearBtn = document.getElementById('clearVideoBtn');
-  if(src){ vid.src = src; wrap.classList.add('show'); clearBtn.style.display='inline-flex'; }
-  else { vid.pause(); vid.removeAttribute('src'); vid.load(); wrap.classList.remove('show'); clearBtn.style.display='none'; }
+function renderVideoPreviewList(){
+  const wrap = document.getElementById('videoPreviewList');
+  wrap.innerHTML = videosDraft.map((src, i) => `
+    <div class="video-preview-item">
+      <video src="${src}" controls muted></video>
+      <button type="button" data-remove-video="${i}">&times;</button>
+    </div>
+  `).join('');
 }
 
 document.getElementById('gameImg').addEventListener('input', e => setCoverPreview(e.target.value));
@@ -1461,26 +1494,32 @@ document.getElementById('galleryPreview').addEventListener('click', e => {
 });
 
 document.getElementById('videoFile').addEventListener('change', e => {
-  const file = e.target.files[0];
-  if(!file) return;
-  const objUrl = URL.createObjectURL(file);
-  videoDraft = objUrl;
-  document.getElementById('videoUrl').value = '';
-  setVideoPreview(objUrl);
-});
-
-document.getElementById('videoUrl').addEventListener('change', e => {
-  if(e.target.value){
-    videoDraft = e.target.value;
-    setVideoPreview(videoDraft);
+  const files = [...e.target.files];
+  for(const file of files){
+    // Video files stay as local blob previews rather than being converted
+    // to base64 — video data is far too large to embed in saved state.
+    // Use the "link a hosted clip" field instead for a video that needs
+    // to persist and show up for every visitor.
+    videosDraft.push(URL.createObjectURL(file));
   }
+  renderVideoPreviewList();
+  e.target.value = '';
 });
 
-document.getElementById('clearVideoBtn').addEventListener('click', () => {
-  videoDraft = '';
-  document.getElementById('videoUrl').value = '';
-  document.getElementById('videoFile').value = '';
-  setVideoPreview('');
+document.getElementById('addVideoUrlBtn').addEventListener('click', () => {
+  const input = document.getElementById('videoUrl');
+  const url = input.value.trim();
+  if(!url) return;
+  videosDraft.push(url);
+  input.value = '';
+  renderVideoPreviewList();
+});
+
+document.getElementById('videoPreviewList').addEventListener('click', e => {
+  const btn = e.target.closest('[data-remove-video]');
+  if(!btn) return;
+  videosDraft.splice(Number(btn.dataset.removeVideo), 1);
+  renderVideoPreviewList();
 });
 
 /* ===================================================================
@@ -1706,9 +1745,9 @@ document.getElementById('gamesGrid').addEventListener('click', e => {
     setCoverPreview(g.img);
     galleryDraft = (g.gallery || []).slice();
     renderGalleryPreview();
-    videoDraft = g.video || '';
-    document.getElementById('videoUrl').value = (videoDraft && !videoDraft.startsWith('blob:')) ? videoDraft : '';
-    setVideoPreview(videoDraft || '');
+    videosDraft = (g.videos && g.videos.length) ? g.videos.slice() : (g.video ? [g.video] : []);
+    document.getElementById('videoUrl').value = '';
+    renderVideoPreviewList();
     openModal('gameModalBackdrop');
     return;
   }
@@ -1732,28 +1771,64 @@ function openGameDetail(id){
   document.getElementById('detailDesc').textContent = g.desc || '';
   document.getElementById('detailCoverImg').src = g.img;
 
+  const videos = (g.videos && g.videos.length) ? g.videos : (g.video ? [g.video] : []);
   const videoWrap = document.getElementById('detailVideoWrap');
-  if(g.video){
-    document.getElementById('detailVideo').src = g.video;
+  const videoList = document.getElementById('detailVideoList');
+  if(videos.length){
+    videoList.innerHTML = videos.map(src => `
+      <div class="detail-video">
+        <video src="${src}" controls playsinline></video>
+        <button type="button" class="fullscreen-btn" data-fullscreen-video>⛶</button>
+      </div>
+    `).join('');
     videoWrap.style.display = 'block';
   } else {
+    videoList.innerHTML = '';
     videoWrap.style.display = 'none';
   }
 
   const galleryWrap = document.getElementById('detailGalleryWrap');
   const galleryRow = document.getElementById('detailGallery');
   if(g.gallery && g.gallery.length){
-    galleryRow.innerHTML = g.gallery.map(src => `<img src="${src}" alt="${g.name} gameplay screenshot">`).join('');
+    galleryRow.innerHTML = g.gallery.map(src => `<img src="${src}" alt="${g.name} gameplay screenshot" data-lightbox-img>`).join('');
     galleryWrap.style.display = 'block';
   } else {
     galleryWrap.style.display = 'none';
   }
 
   const emptyNote = document.getElementById('detailEmptyNote');
-  emptyNote.style.display = (!g.video && (!g.gallery || !g.gallery.length)) ? 'block' : 'none';
+  emptyNote.style.display = (!videos.length && (!g.gallery || !g.gallery.length)) ? 'block' : 'none';
 
   openModal('gameDetailBackdrop');
 }
+
+/* ---------- Fullscreen viewing: photo lightbox + real video fullscreen ---------- */
+function openLightbox(src){
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightboxBackdrop').classList.add('show');
+}
+function closeLightbox(){
+  document.getElementById('lightboxBackdrop').classList.remove('show');
+  document.getElementById('lightboxImg').src = '';
+}
+document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
+document.getElementById('lightboxBackdrop').addEventListener('click', e => {
+  if(e.target.id === 'lightboxBackdrop') closeLightbox();
+});
+
+document.getElementById('detailCoverImg').addEventListener('click', e => openLightbox(e.target.src));
+document.getElementById('detailGallery').addEventListener('click', e => {
+  const img = e.target.closest('[data-lightbox-img]');
+  if(img) openLightbox(img.src);
+});
+document.getElementById('detailVideoList').addEventListener('click', e => {
+  const btn = e.target.closest('[data-fullscreen-video]');
+  if(!btn) return;
+  const video = btn.previousElementSibling;
+  if(video.requestFullscreen) video.requestFullscreen();
+  else if(video.webkitRequestFullscreen) video.webkitRequestFullscreen();
+  else if(video.webkitEnterFullscreen) video.webkitEnterFullscreen(); // iOS Safari
+});
 
 /* ===================================================================
    TOURNAMENTS + LEADERBOARD
@@ -3143,10 +3218,10 @@ document.getElementById('addGameBtn').addEventListener('click', () => {
   document.getElementById('gameAccent').value = '#ffb627';
   renderGameCatGrid();
   galleryDraft = [];
-  videoDraft = '';
+  videosDraft = [];
   setCoverPreview('');
   renderGalleryPreview();
-  setVideoPreview('');
+  renderVideoPreviewList();
   openModal('gameModalBackdrop');
 });
 
@@ -3165,7 +3240,7 @@ document.getElementById('gameForm').addEventListener('submit', e => {
     base: document.getElementById('gameBase').value,
     accent: document.getElementById('gameAccent').value,
     gallery: galleryDraft.slice(),
-    video: videoDraft
+    videos: videosDraft.slice()
   };
   const existingIdx = state.games.findIndex(x => x.id === id);
   if(existingIdx > -1) state.games[existingIdx] = data;
