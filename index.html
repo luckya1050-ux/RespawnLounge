@@ -1998,6 +1998,7 @@ document.getElementById('announceForm').addEventListener('submit', e => {
   renderTournaments();
   closeModal('announceModalBackdrop');
   e.target.reset();
+  saveStateNow();
   toast('Tournament saved');
 });
 
@@ -3277,6 +3278,7 @@ document.getElementById('gameForm').addEventListener('submit', e => {
 
   closeModal('gameModalBackdrop');
   renderGamesGrid(); renderHero(); renderShelf();
+  saveStateNow();
   toast('Game saved');
 });
 
@@ -3311,6 +3313,7 @@ document.getElementById('packageForm').addEventListener('submit', e => {
 
   closeModal('packageModalBackdrop');
   renderPackages();
+  saveStateNow();
   toast('Package saved');
 });
 
@@ -3580,16 +3583,31 @@ let savePending = false;
 let initialLoadComplete = false;
 let editedBeforeLoadFinished = false;
 
-async function saveStateNow(){
+async function saveStateNow(opts={}){
   const snap = JSON.stringify(state);
   if(snap === lastSavedSnapshot) return;
-  if(saveInFlight){ savePending = true; return; }
+  // Normally we wait for an in-flight save to finish rather than firing
+  // a duplicate. But if THIS call is the keepalive one triggered by the
+  // page unloading, the already-in-flight request is exactly the one at
+  // risk of being cancelled by that same navigation — so it still needs
+  // its own keepalive attempt to go out rather than just queueing and
+  // waiting on a request that may never finish. A harmless duplicate
+  // write is a fine trade-off against silently losing the edit.
+  if(saveInFlight && !opts.keepalive){ savePending = true; return; }
   saveInFlight = true;
   try{
+    // `keepalive` tells the browser to finish delivering this request
+    // even if the page is being unloaded/refreshed right now. Without
+    // it, a save that's still in flight when the person hits refresh
+    // gets silently cancelled mid-request — the edit never reaches the
+    // server, so the old data comes back on reload. This is the fix
+    // for edits (like a freshly-added video link) that "disappear"
+    // after a quick refresh right after saving.
     const res = await fetch('/api/state', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: snap
+      body: snap,
+      keepalive: !!opts.keepalive
     });
     if(res.ok){
       lastSavedSnapshot = snap;
@@ -3607,7 +3625,7 @@ async function saveStateNow(){
     saveInFlight = false;
     if(savePending){
       savePending = false;
-      saveStateNow();
+      saveStateNow(opts);
     }
   }
 }
@@ -3615,16 +3633,19 @@ async function saveStateNow(){
 let saveDebounceTimer = null;
 function scheduleSave(){
   clearTimeout(saveDebounceTimer);
-  saveDebounceTimer = setTimeout(saveStateNow, 800);
+  saveDebounceTimer = setTimeout(() => saveStateNow(), 800);
 }
 // Catch-all: if anything in state changed but a save wasn't explicitly
 // scheduled, this periodic check will still pick it up.
 setInterval(() => {
   if(JSON.stringify(state) !== lastSavedSnapshot) scheduleSave();
 }, 2500);
-window.addEventListener('beforeunload', saveStateNow);
+// These two are the moments a save is most likely to get cut off
+// mid-request (tab closing, refresh, switching apps on mobile), so
+// they explicitly opt into `keepalive` — see the note in saveStateNow.
+window.addEventListener('beforeunload', () => saveStateNow({ keepalive: true }));
 document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'hidden') saveStateNow();
+  if(document.visibilityState === 'hidden') saveStateNow({ keepalive: true });
 });
 
 function renderEverything(){
