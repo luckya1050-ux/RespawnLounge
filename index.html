@@ -523,6 +523,36 @@
   .lb-avatar{width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,0.08);}
   .lb-avatar.placeholder{display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--ink-dim);}
 
+  /* ---------- Game requests ---------- */
+  .req-card{margin-bottom:12px;}
+  .req-head{display:flex;align-items:center;gap:12px;}
+  .req-avatar{width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,0.08);}
+  .req-avatar.placeholder{display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink-dim);}
+  .req-headtext{flex:1;min-width:0;}
+  .req-headtext h4{font-size:15px;margin-bottom:2px;}
+  .req-meta{font-size:12px;color:var(--ink-dim);}
+  .req-note{font-size:13.5px;color:var(--ink-dim);margin:10px 0 0;line-height:1.5;}
+  .req-actions{display:flex;gap:8px;margin-top:12px;}
+  .react-btn{
+    border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;
+    padding:7px 14px;font-size:12.5px;font-weight:600;transition:all .15s ease;
+  }
+  .react-btn:hover{border-color:var(--ink);}
+  .react-btn.active{background:rgba(95,225,216,0.15);border-color:var(--cyan);color:var(--cyan);}
+  .req-replies{display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);}
+  .req-replies.open{display:block;}
+  .reply-item{display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;}
+  .reply-avatar{width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0;margin-top:1px;background:rgba(255,255,255,0.08);}
+  .reply-avatar.placeholder{display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--ink-dim);}
+  .reply-body{font-size:13px;line-height:1.5;}
+  .reply-user{color:var(--cyan);font-weight:600;margin-right:4px;}
+  .reply-form{display:flex;gap:8px;align-items:center;}
+  .reply-form input{
+    flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:999px;
+    padding:9px 14px;color:var(--ink);font-size:13px;
+  }
+  .reply-form .icon-btn{background:var(--amber);color:#181527;flex-shrink:0;}
+
   /* ---------- Bracket ---------- */
   .bracket-scroll{overflow-x:auto;padding-bottom:10px;}
   .bracket-rounds{display:flex;gap:26px;min-width:max-content;padding:6px 2px;}
@@ -616,6 +646,7 @@
     <button class="tab-btn" data-view="games">Games</button>
     <button class="tab-btn" data-view="tournaments">Tournaments</button>
     <button class="tab-btn" data-view="packages">Packages</button>
+    <button class="tab-btn" data-view="requests">Requests</button>
   </nav>
 </header>
 
@@ -715,6 +746,19 @@
     </div>
   </section>
 
+  <!-- ===================== GAME REQUESTS ===================== -->
+  <section class="view" id="view-requests">
+    <div class="wrap">
+      <div class="eyebrow">Suggest &amp; vote</div>
+      <h2 class="section-title">Request a game</h2>
+      <p class="section-sub">Want something added to the lineup? Post it below — other players can react and reply. One reaction per person, per request.</p>
+      <div class="row-between" style="margin-bottom:14px;gap:10px;">
+        <p class="section-sub" style="margin:0;">Sorted by most reactions.</p>
+        <button class="btn btn-primary btn-sm" id="addRequestBtn">+ Request a game</button>
+      </div>
+      <div id="requestList"></div>
+    </div>
+  </section>
 
 </main>
 
@@ -941,6 +985,20 @@
       </div>
       <div class="field"><label>Prize pool (LKR)</label><input type="text" id="tPrize" placeholder="e.g. 5,000"></div>
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">Save tournament</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="newRequestModalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Request a game</h3>
+      <button class="modal-close" data-close="newRequestModalBackdrop">&times;</button>
+    </div>
+    <form id="newRequestForm">
+      <div class="field"><label>Game title</label><input type="text" id="reqTitle" placeholder="e.g. Elden Ring" maxlength="60" required></div>
+      <div class="field"><label>Why should we get it? (optional)</label><textarea id="reqNote" rows="3" maxlength="300" placeholder="Anything that helps us prioritise…"></textarea></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">Post request</button>
     </form>
   </div>
 </div>
@@ -1270,6 +1328,11 @@ const state = {
   // One profile per logged-in email: { email, username, photo, createdAt }.
   // Usernames must be unique (case-insensitive) across all customers.
   customers: [],
+  // Customer-submitted "add this game" requests.
+  // { id, title, note, email, username, photo, createdAt,
+  //   reacts: [email,...] — one entry per customer, toggled on/off,
+  //   replies: [{ id, email, username, photo, text, createdAt }] }
+  gameRequests: [],
   // Category names (Solo, Duo, PS5, etc). This lives inside `state` (rather
   // than as its own standalone variable) specifically so that adding,
   // renaming, or removing a category actually gets saved to the server —
@@ -2027,6 +2090,180 @@ document.getElementById('leaderboardTable').addEventListener('click', e => {
     renderLeaderboard();
     toast('Entry removed');
   }
+});
+
+/* ===================================================================
+   GAME REQUESTS — customers suggest games, react once per request,
+   and reply to each other. Requires being signed in (same login/profile
+   used for tournaments), so every post/reaction/reply carries a real
+   username + avatar.
+=================================================================== */
+function escapeHtml(str){
+  return String(str ?? '').replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[ch]));
+}
+function reqDateLabel(iso){
+  const d = new Date(iso);
+  if(isNaN(d)) return '';
+  return d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+}
+// Tracks which requests currently have their reply panel expanded —
+// purely local UI state, not saved to the server.
+const openReplyIds = new Set();
+
+function renderGameRequests(){
+  const wrap = document.getElementById('requestList');
+  if(!wrap) return;
+  const list = state.gameRequests || [];
+  if(!list.length){
+    wrap.innerHTML = '<div class="empty-state">No requests yet — be the first to suggest a game.</div>';
+    return;
+  }
+  const myEmail = (getLoggedInEmail() || '').toLowerCase();
+  const sorted = [...list].sort((a,b) =>
+    (b.reacts||[]).length - (a.reacts||[]).length ||
+    new Date(b.createdAt) - new Date(a.createdAt)
+  );
+  wrap.innerHTML = sorted.map(req => {
+    const reacts = req.reacts || [];
+    const replies = req.replies || [];
+    const reacted = !!myEmail && reacts.includes(myEmail);
+    const isOpen = openReplyIds.has(req.id);
+    const avatarHtml = req.photo
+      ? `<img class="req-avatar" src="${req.photo}" alt="">`
+      : `<div class="req-avatar placeholder">${escapeHtml((req.username||'?').charAt(0).toUpperCase())}</div>`;
+    return `
+      <div class="card req-card">
+        <div class="req-head">
+          ${avatarHtml}
+          <div class="req-headtext">
+            <h4>${escapeHtml(req.title)}</h4>
+            <div class="req-meta">requested by @${escapeHtml(req.username)} · ${reqDateLabel(req.createdAt)}</div>
+          </div>
+          ${editMode ? `<button class="icon-btn" data-del-req="${req.id}" title="Remove request">🗑</button>` : ''}
+        </div>
+        ${req.note ? `<p class="req-note">${escapeHtml(req.note)}</p>` : ''}
+        <div class="req-actions">
+          <button class="react-btn ${reacted ? 'active' : ''}" data-react-req="${req.id}">🙌 ${reacts.length}</button>
+          <button class="btn btn-ghost btn-sm" data-toggle-replies="${req.id}">💬 ${replies.length ? replies.length + (replies.length===1?' reply':' replies') : 'Reply'}</button>
+        </div>
+        <div class="req-replies ${isOpen ? 'open' : ''}">
+          ${replies.map(rep => {
+            const repAvatar = rep.photo
+              ? `<img class="reply-avatar" src="${rep.photo}" alt="">`
+              : `<div class="reply-avatar placeholder">${escapeHtml((rep.username||'?').charAt(0).toUpperCase())}</div>`;
+            return `
+              <div class="reply-item">
+                ${repAvatar}
+                <div class="reply-body"><span class="reply-user">@${escapeHtml(rep.username)}</span> ${escapeHtml(rep.text)}</div>
+              </div>
+            `;
+          }).join('')}
+          <form class="reply-form" data-reply-form="${req.id}">
+            <input type="text" placeholder="Write a reply…" maxlength="280" autocomplete="off">
+            <button type="submit" class="icon-btn">➤</button>
+          </form>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function promptSignIn(msg){
+  toast(msg);
+  document.getElementById('customerLoginBtn').click();
+}
+
+document.getElementById('addRequestBtn').addEventListener('click', () => {
+  if(!getLoggedInEmail()){ promptSignIn('Sign in to post a request'); return; }
+  document.getElementById('newRequestForm').reset();
+  openModal('newRequestModalBackdrop');
+});
+
+document.getElementById('newRequestForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const email = getLoggedInEmail();
+  if(!email){ promptSignIn('Sign in to post a request'); return; }
+  const title = document.getElementById('reqTitle').value.trim();
+  if(!title){ toast('Enter a game title'); return; }
+  const note = document.getElementById('reqNote').value.trim();
+  const profile = getCustomerProfile(email);
+  state.gameRequests.unshift({
+    id: 'req' + Date.now(),
+    title,
+    note,
+    email: email.toLowerCase(),
+    username: profile?.username || email.split('@')[0],
+    photo: profile?.photo || '',
+    createdAt: new Date().toISOString(),
+    reacts: [],
+    replies: []
+  });
+  renderGameRequests();
+  closeModal('newRequestModalBackdrop');
+  e.target.reset();
+  saveStateNow();
+  toast('Request posted 🎮');
+});
+
+document.getElementById('requestList').addEventListener('click', e => {
+  const reactBtn = e.target.closest('[data-react-req]');
+  if(reactBtn){
+    const email = getLoggedInEmail();
+    if(!email){ promptSignIn('Sign in to react'); return; }
+    const req = state.gameRequests.find(r => r.id === reactBtn.dataset.reactReq);
+    if(!req) return;
+    req.reacts = req.reacts || [];
+    const lower = email.toLowerCase();
+    const idx = req.reacts.indexOf(lower);
+    if(idx > -1) req.reacts.splice(idx, 1); // one react per customer — tap again to undo
+    else req.reacts.push(lower);
+    renderGameRequests();
+    scheduleSave();
+    return;
+  }
+  const toggleBtn = e.target.closest('[data-toggle-replies]');
+  if(toggleBtn){
+    const id = toggleBtn.dataset.toggleReplies;
+    if(openReplyIds.has(id)) openReplyIds.delete(id);
+    else openReplyIds.add(id);
+    renderGameRequests();
+    return;
+  }
+  const delBtn = e.target.closest('[data-del-req]');
+  if(delBtn){
+    state.gameRequests = state.gameRequests.filter(r => r.id !== delBtn.dataset.delReq);
+    renderGameRequests();
+    scheduleSave();
+    toast('Request removed');
+  }
+});
+
+document.getElementById('requestList').addEventListener('submit', e => {
+  const form = e.target.closest('[data-reply-form]');
+  if(!form) return;
+  e.preventDefault();
+  const email = getLoggedInEmail();
+  if(!email){ promptSignIn('Sign in to reply'); return; }
+  const input = form.querySelector('input');
+  const text = input.value.trim();
+  if(!text) return;
+  const req = state.gameRequests.find(r => r.id === form.dataset.replyForm);
+  if(!req) return;
+  const profile = getCustomerProfile(email);
+  req.replies = req.replies || [];
+  req.replies.push({
+    id: 'rep' + Date.now() + Math.random().toString(36).slice(2, 6),
+    email: email.toLowerCase(),
+    username: profile?.username || email.split('@')[0],
+    photo: profile?.photo || '',
+    text,
+    createdAt: new Date().toISOString()
+  });
+  openReplyIds.add(req.id); // keep the panel open so they see their reply land
+  renderGameRequests();
+  scheduleSave();
 });
 
 /* ---------- Tournament registration flow (email + verification code + profile) ---------- */
@@ -3667,6 +3904,7 @@ function renderEverything(){
   renderTournaments();
   renderLeaderboard();
   renderPackages();
+  renderGameRequests();
   initDragScrollAreas();
   // Re-check the login button every time state (re)loads, since customer
   // profiles (username + photo) may only just have arrived from the server.
