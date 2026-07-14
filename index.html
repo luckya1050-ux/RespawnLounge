@@ -3668,6 +3668,9 @@ function renderEverything(){
   renderLeaderboard();
   renderPackages();
   initDragScrollAreas();
+  // Re-check the login button every time state (re)loads, since customer
+  // profiles (username + photo) may only just have arrived from the server.
+  syncLoginButton();
 }
 
 async function loadStateThenRender(){
