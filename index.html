@@ -607,7 +607,7 @@
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);" id="openStatusText">OPEN 24/7</div>
-      <button class="edit-toggle-btn" id="customerLoginBtn" style="display:flex;">👤 Login</button>
+      <button class="edit-toggle-btn" id="customerLoginBtn" style="display:flex;">👤 Sign in</button>
       <button class="edit-toggle-btn" id="editModeToggle">🔒 Edit</button>
     </div>
   </div>
@@ -950,7 +950,7 @@
     <button class="modal-close login-modal-close" data-close="loginModalBackdrop">&times;</button>
 
     <div class="login-badge">👤</div>
-    <h3 class="login-title">Log in</h3>
+    <h3 class="login-title">Sign in</h3>
     <p class="login-sub" id="loginModalSub">One-time email check — after this, tournament sign-ups are instant on this device.</p>
 
     <div class="login-steps-dots">
@@ -971,7 +971,7 @@
         <input type="text" id="loginCodeInput" class="login-code-input" inputmode="numeric" maxlength="6" placeholder="• • • • • •">
       </div>
       <div style="display:flex;gap:8px;">
-        <button type="button" class="btn btn-primary" id="loginVerifyBtn" style="flex:1;justify-content:center;">Verify &amp; log in</button>
+        <button type="button" class="btn btn-primary" id="loginVerifyBtn" style="flex:1;justify-content:center;">Verify &amp; sign in</button>
         <button type="button" class="btn btn-ghost" id="loginResendBtn">Resend</button>
       </div>
     </div>
@@ -996,7 +996,7 @@
         </label>
         <div class="avatar-preview" id="loginAvatarPreview"></div>
       </div>
-      <button type="button" class="btn btn-primary" id="loginSaveProfileBtn" style="width:100%;justify-content:center;">Save profile &amp; log in</button>
+      <button type="button" class="btn btn-primary" id="loginSaveProfileBtn" style="width:100%;justify-content:center;">Save profile &amp; sign in</button>
     </div>
   </div>
 </div>
@@ -1269,11 +1269,22 @@ const state = {
   whatsappNumber: '',
   // One profile per logged-in email: { email, username, photo, createdAt }.
   // Usernames must be unique (case-insensitive) across all customers.
-  customers: []
+  customers: [],
+  // Category names (Solo, Duo, PS5, etc). This lives inside `state` (rather
+  // than as its own standalone variable) specifically so that adding,
+  // renaming, or removing a category actually gets saved to the server —
+  // previously it was a plain JS object that only ever existed in the
+  // current browser tab, so any category change silently reverted on
+  // refresh.
+  catLabel: { solo:'Solo', duo:'Duo', squad:'Squad', story:'Story Mode', racing:'Racing Sim', pc:'PC', ps5:'PS5', fps:'FPS', sports:'Sports', fighting:'Fighting' }
 };
 
 const ADMIN_PASS = 'warencarpadinna69';
-let catLabel = { solo:'Solo', duo:'Duo', squad:'Squad', story:'Story Mode', racing:'Racing Sim', pc:'PC', ps5:'PS5', fps:'FPS', sports:'Sports', fighting:'Fighting' };
+// `catLabel` stays around as a convenience alias to `state.catLabel` so the
+// rest of the code (which refers to it directly in dozens of places) keeps
+// working unchanged. It gets re-pointed at the new object in
+// loadStateThenRender() whenever a fresh state is loaded from the server.
+let catLabel = state.catLabel;
 
 /* ---------- Hidden admin access — customers never see the Edit button
    unless they know the trick (tap the logo 5x fast) or use ?admin=1 ---------- */
@@ -2059,7 +2070,7 @@ function syncLoginButton(){
     btn.innerHTML = `${avatarHtml} ${label}`;
     btn.title = 'Tap to edit your profile';
   } else {
-    btn.textContent = '👤 Login';
+    btn.textContent = '👤 Sign in';
     btn.title = '';
   }
 }
@@ -2215,7 +2226,7 @@ document.getElementById('loginVerifyBtn').addEventListener('click', async () => 
     toast('Could not verify — check your connection');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Verify & log in';
+    btn.textContent = 'Verify & sign in';
   }
 });
 
@@ -3678,6 +3689,10 @@ async function loadStateThenRender(){
         console.log('Skipped applying loaded state — a newer local edit was already made.');
       } else if(saved && typeof saved === 'object' && Object.keys(saved).length){
         Object.keys(saved).forEach(key => { state[key] = saved[key]; });
+        // state.catLabel may have just been replaced with a new object from
+        // the server — re-point the alias at it so category lookups
+        // everywhere else in the code see the loaded categories.
+        catLabel = state.catLabel;
         renderEverything();
       }
     }
