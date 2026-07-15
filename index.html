@@ -2129,6 +2129,7 @@ function renderGameRequests(){
     const reacts = req.reacts || [];
     const replies = req.replies || [];
     const reacted = !!myEmail && reacts.includes(myEmail);
+    const isOwner = !!myEmail && req.email === myEmail;
     const isOpen = openReplyIds.has(req.id);
     const avatarHtml = req.photo
       ? `<img class="req-avatar" src="${req.photo}" alt="">`
@@ -2141,7 +2142,7 @@ function renderGameRequests(){
             <h4>${escapeHtml(req.title)}</h4>
             <div class="req-meta">requested by @${escapeHtml(req.username)} · ${reqDateLabel(req.createdAt)}</div>
           </div>
-          ${editMode ? `<button class="icon-btn" data-del-req="${req.id}" title="Remove request">🗑</button>` : ''}
+          ${(editMode || isOwner) ? `<button class="icon-btn" data-del-req="${req.id}" title="${isOwner && !editMode ? 'Delete your request' : 'Remove request'}">🗑</button>` : ''}
         </div>
         ${req.note ? `<p class="req-note">${escapeHtml(req.note)}</p>` : ''}
         <div class="req-actions">
@@ -2220,7 +2221,7 @@ document.getElementById('requestList').addEventListener('click', e => {
     if(idx > -1) req.reacts.splice(idx, 1); // one react per customer — tap again to undo
     else req.reacts.push(lower);
     renderGameRequests();
-    scheduleSave();
+    saveStateNow();
     return;
   }
   const toggleBtn = e.target.closest('[data-toggle-replies]');
@@ -2233,9 +2234,18 @@ document.getElementById('requestList').addEventListener('click', e => {
   }
   const delBtn = e.target.closest('[data-del-req]');
   if(delBtn){
+    const req = state.gameRequests.find(r => r.id === delBtn.dataset.delReq);
+    if(!req) return;
+    const myEmail = (getLoggedInEmail() || '').toLowerCase();
+    const isOwner = !!myEmail && req.email === myEmail;
+    // Staff (edit mode) can remove any request; a customer can only
+    // remove their own.
+    if(!editMode && !isOwner){ toast('You can only delete your own request'); return; }
     state.gameRequests = state.gameRequests.filter(r => r.id !== delBtn.dataset.delReq);
     renderGameRequests();
-    scheduleSave();
+    // Save immediately (not debounced) so a quick refresh right after
+    // deleting can't race the save and bring the request back.
+    saveStateNow();
     toast('Request removed');
   }
 });
@@ -2263,7 +2273,7 @@ document.getElementById('requestList').addEventListener('submit', e => {
   });
   openReplyIds.add(req.id); // keep the panel open so they see their reply land
   renderGameRequests();
-  scheduleSave();
+  saveStateNow();
 });
 
 /* ---------- Tournament registration flow (email + verification code + profile) ---------- */
